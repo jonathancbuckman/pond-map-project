@@ -1,6 +1,6 @@
 {
 "type": "FeatureCollection",
-"name": "17-12N-02W-NENE",
+"name": "7-12N-02W-NENE",
 "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
 "xy_coordinate_resolution": 1e-06,
 "features": [
