@@ -202,7 +202,7 @@ function renderSectionsSubset() {
         return featureBounds && mapBounds.intersects(featureBounds);
     }).slice(0, 1000); // Safety cap
 
-    console.log(`Rendering ${featuresInView.length} section features at zoom ${map.getZoom()}`);
+    // Removed: console.log(`Rendering ${featuresInView.length} section features at zoom ${map.getZoom()}`);
 
     // 1. Clear previous layers AFTER we know we have data to show
     plssSectionsOverlay.clearLayers();
@@ -227,7 +227,7 @@ function renderSectionsSubset() {
             });
             // Add the single, complete GeoJSON layer to its group.
             sectionPolygons.addTo(plssSectionsOverlay);
-            console.log('Section lines added successfully');
+            // Removed: console.log('Section lines added successfully');
         } catch (error) {
             console.error('Error adding section lines:', error);
         }
