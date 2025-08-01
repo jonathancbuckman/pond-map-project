@@ -255,13 +255,6 @@ html, body {
     display: flex;
 }
 
-.search-marker {
-    background-color: #ff4444;
-    border: 2px solid white;
-    border-radius: 50%;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-}
-
 /* --- SEARCH LOCATION POPUP STYLING --- */
 .search-location-popup {
     font-family: 'ISOCPEUR', Arial, sans-serif;
@@ -293,14 +286,17 @@ html, body {
 /* Mobile responsive adjustments */
 @media (max-width: 768px) {
     .coordinate-search-container {
-        top: 60px; /* Move below zoom controls on mobile */
-        left: 10px;
-        right: 10px;
-        width: auto; /* Allow responsive width on mobile */
-        max-width: calc(100vw - 20px); /* Prevent overflow */
+        top: 10px; /* Keep at same level as zoom controls */
+        left: 80px; /* Move further right to avoid zoom buttons */
+        right: 10px; /* Add right margin */
+        width: auto; /* Allow responsive width */
+        max-width: calc(100vw - 90px); /* Ensure it doesn't go off screen */
+        min-width: 200px; /* Minimum usable width */
     }
+    
     .coordinate-search-input {
         font-size: 14px; /* Slightly larger for mobile */
+        min-width: 0; /* Allow input to shrink if needed */
     }
     .search-location-popup {
         min-width: 140px;
