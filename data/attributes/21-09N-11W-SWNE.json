@@ -1,0 +1,14 @@
+{
+  "PondID": "21-09N-11W-SWNE",
+  "PondName": "Reservoir S21 T09N R11W",
+  "SurveyDate": "2024-09-19",
+  "MaxDepth_ft": "4.5",
+  "DepthVolumeData": [
+    { "Depth": 0.0, "Volume": 752236, "SurfaceArea": 34.853 },
+    { "Depth": 1.0, "Volume": 499716, "SurfaceArea": 30.317 },
+    { "Depth": 2.0, "Volume": 280679, "SurfaceArea": 26.12 },
+    { "Depth": 3.0, "Volume": 102602, "SurfaceArea": 18.122 },
+    { "Depth": 4.0, "Volume": 10483, "SurfaceArea": 6.065 },
+    { "Depth": 4.5, "Volume": 0, "SurfaceArea": 0.0 }
+  ]
+}
