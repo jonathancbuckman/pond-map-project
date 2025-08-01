@@ -1,0 +1,25 @@
+{
+  "PondID": "22-16N-06W-SWNW-2",
+  "PondName": "Reservoir S22 T16N R06W (2)",
+  "SurveyDate": "2025-01-17",
+  "MaxDepth_ft": "16.0",
+  "DepthVolumeData": [
+    { "Depth": 0.0, "Volume": 199803, "SurfaceArea": 2.669 },
+    { "Depth": 1.0, "Volume": 179711, "SurfaceArea": 2.511 },
+    { "Depth": 2.0, "Volume": 160810, "SurfaceArea": 2.36 },
+    { "Depth": 3.0, "Volume": 143064, "SurfaceArea": 2.216 },
+    { "Depth": 4.0, "Volume": 126402, "SurfaceArea": 2.083 },
+    { "Depth": 5.0, "Volume": 110706, "SurfaceArea": 1.965 },
+    { "Depth": 6.0, "Volume": 95894, "SurfaceArea": 1.855 },
+    { "Depth": 7.0, "Volume": 81905, "SurfaceArea": 1.753 },
+    { "Depth": 8.0, "Volume": 68675, "SurfaceArea": 1.658 },
+    { "Depth": 9.0, "Volume": 56171, "SurfaceArea": 1.565 },
+    { "Depth": 10.0, "Volume": 44403, "SurfaceArea": 1.468 },
+    { "Depth": 11.0, "Volume": 33416, "SurfaceArea": 1.364 },
+    { "Depth": 12.0, "Volume": 23290, "SurfaceArea": 1.243 },
+    { "Depth": 13.0, "Volume": 14181, "SurfaceArea": 1.102 },
+    { "Depth": 14.0, "Volume": 6388, "SurfaceArea": 0.871 },
+    { "Depth": 15.0, "Volume": 1105, "SurfaceArea": 0.445 },
+    { "Depth": 16.0, "Volume": 0, "SurfaceArea": 0.001 }
+  ]
+}
