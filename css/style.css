@@ -286,7 +286,8 @@ html, body {
 /* Mobile responsive adjustments */
 @media (max-width: 768px) {
     .coordinate-search-container {
-        top: 100px; /* Move further down to clear zoom buttons completely */
+        top: auto; /* Remove top positioning */
+        bottom: 20px; /* Position from bottom of screen */
         left: 10px; /* Align with left margin */
         right: 10px; /* Add right margin */
         width: auto; /* Allow responsive width */
@@ -295,7 +296,7 @@ html, body {
     }
     
     .coordinate-search-input {
-        font-size: 14px; /* Slightly larger for mobile */
+        font-size: 16px; /* 16px+ prevents zoom on iOS */
         min-width: 0; /* Allow input to shrink if needed */
     }
     .search-location-popup {
