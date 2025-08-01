@@ -1,0 +1,29 @@
+{
+  "PondID": "125340468",
+  "PondName": "Quartermaster Creek Site 15 Reservoir",
+  "SurveyDate": "2025-07-26",
+  "MaxDepth_ft": "19.596",
+  "DepthVolumeData": [
+    { "Depth": 0.0, "Volume": 761052, "SurfaceArea": 12.502 },
+    { "Depth": 1.0, "Volume": 669741, "SurfaceArea": 11.097 },
+    { "Depth": 2.0, "Volume": 589345, "SurfaceArea": 9.686 },
+    { "Depth": 3.0, "Volume": 517375, "SurfaceArea": 8.763 },
+    { "Depth": 4.0, "Volume": 453062, "SurfaceArea": 7.83 },
+    { "Depth": 5.0, "Volume": 396271, "SurfaceArea": 6.856 },
+    { "Depth": 6.0, "Volume": 345698, "SurfaceArea": 6.251 },
+    { "Depth": 7.0, "Volume": 298740, "SurfaceArea": 5.874 },
+    { "Depth": 8.0, "Volume": 254320, "SurfaceArea": 5.586 },
+    { "Depth": 9.0, "Volume": 212007, "SurfaceArea": 5.324 },
+    { "Depth": 10.0, "Volume": 171695, "SurfaceArea": 5.067 },
+    { "Depth": 11.0, "Volume": 133463, "SurfaceArea": 4.774 },
+    { "Depth": 12.0, "Volume": 98480, "SurfaceArea": 4.177 },
+    { "Depth": 13.0, "Volume": 69064, "SurfaceArea": 3.434 },
+    { "Depth": 14.0, "Volume": 44916, "SurfaceArea": 2.801 },
+    { "Depth": 15.0, "Volume": 25541, "SurfaceArea": 2.187 },
+    { "Depth": 16.0, "Volume": 11365, "SurfaceArea": 1.397 },
+    { "Depth": 17.0, "Volume": 4503, "SurfaceArea": 0.494 },
+    { "Depth": 18.0, "Volume": 1541, "SurfaceArea": 0.29 },
+    { "Depth": 19.0, "Volume": 78, "SurfaceArea": 0.059 },
+    { "Depth": 19.596, "Volume": 0, "SurfaceArea": 0 }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "PondID": "11-20N-14W-NWSWSE",
+  "PondName": "Reservoir S11 T20N R14W",
+  "SurveyDate": "2025-06-10",
+  "MaxDepth_ft": "12.73",
+  "DepthVolumeData": [
+    { "Depth": 0.0, "Volume": 67659, "SurfaceArea": 1.214 },
+    { "Depth": 1.0, "Volume": 57659, "SurfaceArea": 1.163 },
+    { "Depth": 2.0, "Volume": 47659, "SurfaceArea": 1.112 },
+    { "Depth": 3.0, "Volume": 37659, "SurfaceArea": 1.06 },
+    { "Depth": 4.0, "Volume": 30215, "SurfaceArea": 0.88 },
+    { "Depth": 5.0, "Volume": 23890, "SurfaceArea": 0.77 },
+    { "Depth": 6.0, "Volume": 18340, "SurfaceArea": 0.67 },
+    { "Depth": 7.0, "Volume": 13548, "SurfaceArea": 0.57 },
+    { "Depth": 8.0, "Volume": 9500, "SurfaceArea": 0.47 },
+    { "Depth": 9.0, "Volume": 6191, "SurfaceArea": 0.38 },
+    { "Depth": 10.0, "Volume": 3616, "SurfaceArea": 0.287 },
+    { "Depth": 11.0, "Volume": 1702, "SurfaceArea": 0.21 },
+    { "Depth": 12.0, "Volume": 333, "SurfaceArea": 0.133 },
+    { "Depth": 12.73, "Volume": 0, "SurfaceArea": 0 }
+  ]
+}

@@ -1,0 +1,190 @@
+/* css/style.css - The Complete and Corrected File */
+
+/* --- 1. FONT DEFINITION (Robust Version) --- */
+@font-face {
+    font-family: 'ISOCPEUR';
+    src: url('../fonts/isocpeur.woff2') format('woff2'),  /* Modern Browsers */
+         url('../fonts/isocpeur.ttf') format('truetype'); /* Safari, Android, iOS */
+    font-weight: normal;
+    font-style: normal;
+}
+
+/* --- 2. GLOBAL STYLES --- */
+html, body {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    /* This applies the font to the general page, but will be
+       overridden by Leaflet's more specific rules. */
+    font-family: 'ISOCPEUR', Arial, sans-serif;
+}
+
+#map {
+    height: 100%;
+    width: 100%;
+}
+
+/*
+--- 3. LEAFLET OVERRIDE RULES (THE IMPORTANT PART) ---
+*/
+
+/* 
+  This is the key rule. It is more specific and directly targets
+  all Leaflet controls (layer list, zoom buttons, etc.).
+  The "!important" flag ensures it wins against any other rule.
+*/
+.leaflet-control {
+    font-family: 'ISOCPEUR', Arial, sans-serif !important;
+}
+
+/* --- ADD FONT TO YOUR CUSTOM LABEL CLASSES --- */
+
+/* County Labels */
+.county-label {
+    font-family: 'ISOCPEUR', Arial, sans-serif; /* <-- ADD THIS LINE */
+    font-weight: bold;
+    pointer-events: none;
+    color: #555;
+    font-size: 12px;
+    text-shadow: 0 0 2px #fff, 0 0 4px #fff;
+}
+
+/* PLSS Township Labels */
+.plss-label {
+    font-family: 'ISOCPEUR', Arial, sans-serif; /* <-- ADD THIS LINE */
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid #777;
+    border-radius: 3px;
+    padding: 1px 3px;
+    font-size: 11px;
+    pointer-events: none;
+}
+
+/* PLSS Section Labels */
+.plss-section-label {
+    font-family: 'ISOCPEUR', Arial, sans-serif; /* <-- ADD THIS LINE */
+    transform: translate(-50%, -50%);
+    background: transparent;
+    border: none;
+    text-shadow: 0 0 2px #fff, 0 0 4px #fff, 1px 1px 3px #fff;
+    color: #222;
+    font-size: 11px;
+    font-weight: 600;
+    text-align: center;
+    line-height: 1;
+    pointer-events: none;
+}
+
+/* --- DETAILED POPUP STYLES (Restored and Corrected) --- */
+
+/* Main popup container - This is where we set the font for the whole popup */
+.pond-popup {
+    box-sizing: border-box;
+    width: 360px;        /* Slightly wider to accommodate the new font */
+    max-width: 92vw;
+    max-height: 380px;
+    padding: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    font-size: 14px;
+    line-height: 1.5;
+    /* THIS IS THE KEY: Apply the font here! */
+    font-family: 'ISOCPEUR', Arial, sans-serif;
+}
+
+/* Fixes for Leaflet's default wrapper to allow our content to control layout */
+.leaflet-popup-content-wrapper {
+    padding: 0;
+    max-height: 420px;
+    border-radius: 10px;
+}
+
+.leaflet-popup-content {
+    margin: 0;
+    width: auto !important;
+    overflow: hidden;
+}
+
+/* Typography inside the popup */
+.pond-popup h4 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: #333;
+}
+
+.pond-popup h5 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 12px 0 6px 0;
+}
+
+/* Attribute styling */
+.pond-popup .attribute-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.pond-popup .attribute-row .label {
+    font-weight: 600;
+}
+
+/* The magic layout for the scrollable area */
+.pond-popup .content-frame {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+.pond-popup .scroll-area {
+    overflow-y: auto;   /* Enable vertical scrolling */
+    flex: 1 1 auto;
+    min-height: 0;
+    padding-right: 8px;
+    border-top: 1px solid #e6e6e6;
+    margin-top: 10px;
+    padding-top: 6px;
+}
+
+/* --- Find and replace your existing table styles with this --- */
+
+.pond-popup .info-table {
+    width: 100%;
+    margin-top: 5px;
+    border-collapse: collapse;
+}
+
+.pond-popup .info-table thead th {
+    position: sticky;
+    top: 0;
+    background: #fdfdfd;
+    z-index: 1;
+}
+
+/* This is the main rule for all cells */
+.pond-popup .info-table th,
+.pond-popup .info-table td {
+    border: 1px solid #ddd;
+    padding: 6px 8px;
+    font-size: 13px;
+    min-width: 80px;
+    /* THIS IS THE KEY CHANGE: Set default alignment to center */
+    text-align: center;
+}
+
+/* This rule specifically overrides the first column to be left-aligned */
+.pond-popup .info-table th:first-child,
+.pond-popup .info-table td:first-child {
+    text-align: left;
+}
+
+/* This ensures the headers are bold (headers are already centered by the main rule) */
+.pond-popup .info-table th {
+    font-weight: 600;
+    text-align: center; /* Center the headers */
+}

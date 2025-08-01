@@ -1,0 +1,22 @@
+{
+  "PondID": "134131275",
+  "PondName": "Rush Creek Site 19 Reservoir",
+  "SurveyDate": "2025-07-24",
+  "MaxDepth_ft": "12.69",
+  "DepthVolumeData": [
+    { "Depth": 0.0, "Volume": 620913, "SurfaceArea": 11.78 },
+    { "Depth": 1.0, "Volume": 533148, "SurfaceArea": 10.84 },
+    { "Depth": 2.0, "Volume": 452797, "SurfaceArea": 9.90 },
+    { "Depth": 3.0, "Volume": 378802, "SurfaceArea": 9.18 },
+    { "Depth": 4.0, "Volume": 310307, "SurfaceArea": 8.40 },
+    { "Depth": 5.0, "Volume": 247824, "SurfaceArea": 7.70 },
+    { "Depth": 6.0, "Volume": 190949, "SurfaceArea": 6.98 },
+    { "Depth": 7.0, "Volume": 139164, "SurfaceArea": 6.376 },
+    { "Depth": 8.0, "Volume": 92699, "SurfaceArea": 5.48 },
+    { "Depth": 9.0, "Volume": 54325, "SurfaceArea": 4.461 },
+    { "Depth": 10.0, "Volume": 24463, "SurfaceArea": 3.165 },
+    { "Depth": 11.0, "Volume": 5428, "SurfaceArea": 1.703 },
+    { "Depth": 12.0, "Volume": 139, "SurfaceArea": 0.095 },
+    { "Depth": 12.69, "Volume": 0, "SurfaceArea": 0 }
+  ]
+}

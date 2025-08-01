@@ -1,0 +1,17 @@
+{
+  "PondID": "147638422",
+  "PondName": "Beaver Creek Site 1 Reservoir",
+  "SurveyDate": "2025-07-22",
+  "MaxDepth_ft": "8.0",
+  "DepthVolumeData": [
+    { "Depth": 0.0, "Volume": 441484, "SurfaceArea": 16.84 },
+    { "Depth": 1.0, "Volume": 326199, "SurfaceArea": 12.93 },
+    { "Depth": 2.0, "Volume": 236239, "SurfaceArea": 10.32 },
+    { "Depth": 3.0, "Volume": 165093, "SurfaceArea": 8.08 },
+    { "Depth": 4.0, "Volume": 109999, "SurfaceArea": 5.61 },
+    { "Depth": 5.0, "Volume": 71093, "SurfaceArea": 4.45 },
+    { "Depth": 6.0, "Volume": 40574, "SurfaceArea": 3.44 },
+    { "Depth": 7.0, "Volume": 17259, "SurfaceArea": 2.592 },
+    { "Depth": 8.0, "Volume": 0, "SurfaceArea": 0 }
+  ]
+}

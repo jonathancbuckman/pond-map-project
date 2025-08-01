@@ -1,0 +1,27 @@
+{
+  "PondID": "134131314",
+  "PondName": "Rush Creek Site 18 Reservoir",
+  "SurveyDate": "2025-07-25",
+  "MaxDepth_ft": "17.83",
+  "DepthVolumeData": [
+    { "Depth": 0.0, "Volume": 875555, "SurfaceArea": 14.131 },
+    { "Depth": 1.0, "Volume": 773053, "SurfaceArea": 12.321 },
+    { "Depth": 2.0, "Volume": 683989, "SurfaceArea": 10.789 },
+    { "Depth": 3.0, "Volume": 604024, "SurfaceArea": 9.895 },
+    { "Depth": 4.0, "Volume": 529803, "SurfaceArea": 9.264 },
+    { "Depth": 5.0, "Volume": 460479, "SurfaceArea": 8.599 },
+    { "Depth": 6.0, "Volume": 395333, "SurfaceArea": 8.201 },
+    { "Depth": 7.0, "Volume": 333416, "SurfaceArea": 7.716 },
+    { "Depth": 8.0, "Volume": 276120, "SurfaceArea": 7.084 },
+    { "Depth": 9.0, "Volume": 223419, "SurfaceArea": 6.534 },
+    { "Depth": 10.0, "Volume": 174546, "SurfaceArea": 6.077 },
+    { "Depth": 11.0, "Volume": 129349, "SurfaceArea": 5.519 },
+    { "Depth": 12.0, "Volume": 89933, "SurfaceArea": 4.693 },
+    { "Depth": 13.0, "Volume": 56718, "SurfaceArea": 3.859 },
+    { "Depth": 14.0, "Volume": 30904, "SurfaceArea": 2.739 },
+    { "Depth": 15.0, "Volume": 13952, "SurfaceArea": 1.667 },
+    { "Depth": 16.0, "Volume": 4109, "SurfaceArea": 0.941 },
+    { "Depth": 17.0, "Volume": 221, "SurfaceArea": 0.153 },
+    { "Depth": 17.83, "Volume": 0, "SurfaceArea": 0 }
+  ]
+}

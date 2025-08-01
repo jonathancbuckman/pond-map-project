@@ -1,0 +1,26 @@
+{
+  "PondID": "02-20N-14W-SENENW",
+  "PondName": "Reservoir S02 T20N R14W",
+  "SurveyDate": "2025-06-10",
+  "MaxDepth_ft": "8.5",
+  "DepthVolumeData": [
+    { "Depth": 0.0, "Volume": 51676, "SurfaceArea": 1.49 },
+    { "Depth": 0.5, "Volume": 46261, "SurfaceArea": 1.31 },
+    { "Depth": 1.0, "Volume": 41382, "SurfaceArea": 1.20 },
+    { "Depth": 1.5, "Volume": 36826, "SurfaceArea": 1.15 },
+    { "Depth": 2.0, "Volume": 32497, "SurfaceArea": 1.09 },
+    { "Depth": 2.5, "Volume": 28393, "SurfaceArea": 1.03 },
+    { "Depth": 3.0, "Volume": 24514, "SurfaceArea": 0.97 },
+    { "Depth": 3.5, "Volume": 20885, "SurfaceArea": 0.90 },
+    { "Depth": 4.0, "Volume": 17512, "SurfaceArea": 0.84 },
+    { "Depth": 4.5, "Volume": 14389, "SurfaceArea": 0.77 },
+    { "Depth": 5.0, "Volume": 11562, "SurfaceArea": 0.69 },
+    { "Depth": 5.5, "Volume": 9023, "SurfaceArea": 0.61 },
+    { "Depth": 6.0, "Volume": 6777, "SurfaceArea": 0.55 },
+    { "Depth": 6.5, "Volume": 4742, "SurfaceArea": 0.50 },
+    { "Depth": 7.0, "Volume": 2910, "SurfaceArea": 0.44 },
+    { "Depth": 7.5, "Volume": 1391, "SurfaceArea": 0.34 },
+    { "Depth": 8.0, "Volume": 376, "SurfaceArea": 0.18 },
+    { "Depth": 8.5, "Volume": 0, "SurfaceArea": 0.00 }
+  ]
+}
