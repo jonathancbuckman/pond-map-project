@@ -554,6 +554,7 @@ searchContainer.appendChild(clearButton);
 map.getContainer().appendChild(searchContainer);
 
 let searchMarker = null;
+let searchTimeout; // <-- Move this here, after searchMarker declaration
 
 // Show/hide clear button based on input content
 function toggleClearButton() {
@@ -650,7 +651,6 @@ clearButton.addEventListener('click', function(e) {
   clearSearch();
 });
 
-let searchTimeout;
 searchInput.addEventListener('input', function() {
   toggleClearButton();
 

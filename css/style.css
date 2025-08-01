@@ -192,7 +192,7 @@ html, body {
 /* --- COORDINATE SEARCH BOX STYLES --- */
 
 .coordinate-search-container {
-    position: fixed;
+    position: fixed; /* Keep this as fixed */
     top: 10px;
     left: 50px; /* Position next to zoom controls */
     z-index: 1000;
@@ -204,7 +204,6 @@ html, body {
     font-family: 'ISOCPEUR', Arial, sans-serif;
     display: flex;
     align-items: center;
-    position: relative;
     width: 250px; /* Fixed width to prevent stretching */
     box-sizing: border-box;
 }
