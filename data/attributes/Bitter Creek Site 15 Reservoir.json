@@ -1,0 +1,28 @@
+{
+  "PondID": "Bitter Creek Site 15 Reservoir",
+  "PondName": "Bitter Creek Site 15 Reservoir",
+  "SurveyDate": "2025-01-16",
+  "MaxDepth_ft": "18.330",
+  "DepthVolumeData": [
+    { "Depth": 0.0, "Volume": 807169, "SurfaceArea": 16.61 },
+    { "Depth": 1.0, "Volume": 684425, "SurfaceArea": 15.03 },
+    { "Depth": 2.0, "Volume": 574268, "SurfaceArea": 13.33 },
+    { "Depth": 3.0, "Volume": 477913, "SurfaceArea": 11.50 },
+    { "Depth": 4.0, "Volume": 394638, "SurfaceArea": 10.04 },
+    { "Depth": 5.0, "Volume": 321787, "SurfaceArea": 8.76 },
+    { "Depth": 6.0, "Volume": 258757, "SurfaceArea": 7.49 },
+    { "Depth": 7.0, "Volume": 205562, "SurfaceArea": 6.34 },
+    { "Depth": 8.0, "Volume": 160192, "SurfaceArea": 5.39 },
+    { "Depth": 9.0, "Volume": 121245, "SurfaceArea": 4.68 },
+    { "Depth": 10.0, "Volume": 87568, "SurfaceArea": 3.99 },
+    { "Depth": 11.0, "Volume": 59249, "SurfaceArea": 3.30 },
+    { "Depth": 12.0, "Volume": 36369, "SurfaceArea": 2.59 },
+    { "Depth": 13.0, "Volume": 19232, "SurfaceArea": 1.78 },
+    { "Depth": 14.0, "Volume": 9175, "SurfaceArea": 0.92 },
+    { "Depth": 15.0, "Volume": 3875, "SurfaceArea": 0.48 },
+    { "Depth": 16.0, "Volume": 1459, "SurfaceArea": 0.20 },
+    { "Depth": 17.0, "Volume": 376, "SurfaceArea": 0.088 },
+    { "Depth": 18.0, "Volume": 12, "SurfaceArea": 0.013 },
+    { "Depth": 18.33, "Volume": 0, "SurfaceArea": 0.0 }
+  ]
+}
