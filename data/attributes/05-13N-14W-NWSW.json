@@ -1,0 +1,23 @@
+{
+  "PondID": "05-13N-14W-NWSW",
+  "PondName": "Reservoir S05 T13N R14W",
+  "SurveyDate": "2025-06-06",
+  "MaxDepth_ft": "13.203",
+  "DepthVolumeData": [
+    { "Depth": 0.0, "Volume": 342067, "SurfaceArea": 8.874 },
+    { "Depth": 1.0, "Volume": 281486, "SurfaceArea": 6.926 },
+    { "Depth": 2.0, "Volume": 233591, "SurfaceArea": 5.532 },
+    { "Depth": 3.0, "Volume": 193751, "SurfaceArea": 4.762 },
+    { "Depth": 4.0, "Volume": 159625, "SurfaceArea": 4.065 },
+    { "Depth": 5.0, "Volume": 129955, "SurfaceArea": 3.595 },
+    { "Depth": 6.0, "Volume": 103546, "SurfaceArea": 3.197 },
+    { "Depth": 7.0, "Volume": 80016, "SurfaceArea": 2.889 },
+    { "Depth": 8.0, "Volume": 58824, "SurfaceArea": 2.57 },
+    { "Depth": 9.0, "Volume": 40097, "SurfaceArea": 2.253 },
+    { "Depth": 10.0, "Volume": 24029, "SurfaceArea": 1.892 },
+    { "Depth": 11.0, "Volume": 11000, "SurfaceArea": 1.423 },
+    { "Depth": 12.0, "Volume": 2530, "SurfaceArea": 0.723 },
+    { "Depth": 13.0, "Volume": 3, "SurfaceArea": 0.007 },
+    { "Depth": 13.203, "Volume": 0, "SurfaceArea": 0.0 }
+  ]
+}
