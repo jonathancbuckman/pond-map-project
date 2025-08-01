@@ -353,7 +353,10 @@ fetch('data/oklahoma_boundary.geojson')
  
 // Set Oklahoma Outline as default basemap by adding it to the map initially
 oklahomaOutline.addTo(map);
- 
+
+// Add the counties overlay to the map by default so it's checked on load
+countiesOverlay.addTo(map);
+
 const baseMaps = { "Oklahoma Outline": oklahomaOutline, "Streets": osm, "Hybrid": hybridMap };
 
 // Layer Control: Use the actual overlay layers directly
