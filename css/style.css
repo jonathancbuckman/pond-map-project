@@ -286,7 +286,7 @@ html, body {
 /* Mobile responsive adjustments */
 @media (max-width: 768px) {
     .coordinate-search-container {
-        top: 60px; /* Move below zoom controls and layers panel */
+        top: 100px; /* Move further down to clear zoom buttons completely */
         left: 10px; /* Align with left margin */
         right: 10px; /* Add right margin */
         width: auto; /* Allow responsive width */
