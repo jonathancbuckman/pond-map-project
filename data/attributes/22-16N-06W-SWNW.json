@@ -1,0 +1,16 @@
+{
+  "PondID": "22-16N-06W-SWNW",
+  "PondName": "Reservoir S22 T16N R06W",
+  "SurveyDate": "2025-01-17",
+  "MaxDepth_ft": "7.0",
+  "DepthVolumeData": [
+    { "Depth": 0.0, "Volume": 55699, "SurfaceArea": 1.77 },
+    { "Depth": 1.0, "Volume": 42399, "SurfaceArea": 1.66 },
+    { "Depth": 2.0, "Volume": 29924, "SurfaceArea": 1.54 },
+    { "Depth": 3.0, "Volume": 18367, "SurfaceArea": 1.43 },
+    { "Depth": 4.0, "Volume": 8237, "SurfaceArea": 1.13 },
+    { "Depth": 5.0, "Volume": 2331, "SurfaceArea": 0.37 },
+    { "Depth": 6.0, "Volume": 413, "SurfaceArea": 0.14 },
+    { "Depth": 7.0, "Volume": 1, "SurfaceArea": 0.00 }
+  ]
+}
