@@ -528,3 +528,163 @@ async function loadPonds() {
 
 // Initial call to load the data
 loadPonds();
+
+// --- COORDINATE SEARCH BOX IMPLEMENTATION ---
+// Create the search container
+const searchContainer = document.createElement('div');
+searchContainer.className = 'coordinate-search-container';
+
+// Create the input field
+const searchInput = document.createElement('input');
+searchInput.type = 'text';
+searchInput.className = 'coordinate-search-input';
+searchInput.placeholder = 'Enter coordinates: lat, lng (e.g., 35.474, -98.055)';
+
+// Create the clear button
+const clearButton = document.createElement('button');
+clearButton.className = 'coordinate-search-clear';
+clearButton.innerHTML = '×';
+clearButton.title = 'Clear search';
+
+// Add input and clear button to container
+searchContainer.appendChild(searchInput);
+searchContainer.appendChild(clearButton);
+
+// Add container to the map container
+map.getContainer().appendChild(searchContainer);
+
+let searchMarker = null;
+
+// Show/hide clear button based on input content
+function toggleClearButton() {
+  if (searchInput.value.trim()) {
+    clearButton.classList.add('show');
+  } else {
+    clearButton.classList.remove('show');
+  }
+}
+
+// Clear everything
+function clearSearch() {
+  searchInput.value = '';
+  clearSearchMarker();
+  toggleClearButton();
+  searchInput.focus();
+}
+
+// Parse coordinates from the input string
+function parseCoordinates(input) {
+  const cleaned = input.trim().replace(/\s+/g, ' ');
+  const coordRegex = /^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$/;
+  const match = cleaned.match(coordRegex);
+  if (!match) return null;
+  const lat = parseFloat(match[1]);
+  const lng = parseFloat(match[2]);
+  if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return null;
+  }
+  return { lat, lng };
+}
+
+// Clear the search marker from the map
+function clearSearchMarker() {
+  if (searchMarker) {
+    map.removeLayer(searchMarker);
+    searchMarker = null;
+  }
+}
+
+// Search for the coordinates and update the map view
+function searchCoordinates(input) {
+  const coords = parseCoordinates(input);
+
+  if (!coords) {
+    clearSearchMarker();
+    return;
+  }
+
+  clearSearchMarker();
+
+  searchMarker = L.circleMarker([coords.lat, coords.lng], {
+    radius: 8,
+    fillColor: '#ff4444',
+    color: 'white',
+    weight: 2,
+    opacity: 1,
+    fillOpacity: 0.9,
+    className: 'search-marker'
+  }).addTo(map);
+
+  searchMarker.bindPopup(`
+    <div class="search-location-popup">
+      <strong>Search Location</strong>
+      <div class="coordinates">Lat: ${coords.lat.toFixed(6)}</div>
+      <div class="coordinates">Lng: ${coords.lng.toFixed(6)}</div>
+    </div>
+  `, {
+    className: 'search-popup',
+    closeButton: true,
+    autoPan: true,
+    maxWidth: 200,
+    minWidth: 180
+  }).openPopup();
+
+  map.setView([coords.lat, coords.lng], 16);
+}
+
+// Event listeners
+searchInput.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    searchCoordinates(this.value);
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    clearSearch();
+    this.blur();
+  }
+});
+
+clearButton.addEventListener('click', function(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  clearSearch();
+});
+
+let searchTimeout;
+searchInput.addEventListener('input', function() {
+  toggleClearButton();
+
+  clearTimeout(searchTimeout);
+
+  if (this.value.trim() === '') {
+    clearSearchMarker();
+    return;
+  }
+
+  searchTimeout = setTimeout(() => {
+    searchCoordinates(this.value);
+  }, 500);
+});
+
+searchInput.addEventListener('blur', function() {
+  if (this.value.trim() === '') {
+    clearSearchMarker();
+  }
+});
+
+// Prevent map panning when clicking on search elements
+searchContainer.addEventListener('mousedown', function(e) {
+  e.stopPropagation();
+});
+searchContainer.addEventListener('click', function(e) {
+  e.stopPropagation();
+});
+
+// Initialize clear button visibility
+toggleClearButton();
+
+map.on('click', function(e) {
+  if (searchInput.value.trim() === '' && !e.originalEvent.target.closest('.leaflet-popup')) {
+    clearSearchMarker();
+  }
+});

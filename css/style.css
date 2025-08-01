@@ -188,3 +188,127 @@ html, body {
     font-weight: 600;
     text-align: center; /* Center the headers */
 }
+
+/* --- COORDINATE SEARCH BOX STYLES --- */
+
+.coordinate-search-container {
+    position: fixed;
+    top: 10px;
+    left: 50px; /* Position next to zoom controls */
+    z-index: 1000;
+    background: white;
+    border: 2px solid rgba(0,0,0,0.2);
+    border-radius: 4px;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+    padding: 5px;
+    font-family: 'ISOCPEUR', Arial, sans-serif;
+    display: flex;
+    align-items: center;
+    position: relative;
+    width: 250px; /* Fixed width to prevent stretching */
+    box-sizing: border-box;
+}
+
+.coordinate-search-input {
+    border: none;
+    outline: none;
+    font-size: 12px;
+    width: 100%;
+    padding: 3px 25px 3px 5px; /* Add right padding for clear button */
+    background: transparent;
+    font-family: 'ISOCPEUR', Arial, sans-serif;
+    box-sizing: border-box;
+    flex: 1;
+}
+
+.coordinate-search-input::placeholder {
+    color: #999;
+    font-style: italic;
+}
+
+.coordinate-search-clear {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background-color: #ccc;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    display: none; /* Hidden by default */
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    transition: background-color 0.2s;
+    flex-shrink: 0;
+}
+
+.coordinate-search-clear:hover {
+    background-color: #999;
+}
+
+.coordinate-search-clear.show {
+    display: flex;
+}
+
+.search-marker {
+    background-color: #ff4444;
+    border: 2px solid white;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+/* --- SEARCH LOCATION POPUP STYLING --- */
+.search-location-popup {
+    font-family: 'ISOCPEUR', Arial, sans-serif;
+    text-align: center;
+    padding: 8px 12px;
+    min-width: 160px;
+    line-height: 1.4;
+}
+
+.search-location-popup strong {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 14px;
+    color: #333;
+}
+
+.search-location-popup .coordinates {
+    font-size: 12px;
+    color: #666;
+    margin: 2px 0;
+}
+
+/* Ensure the popup content wrapper has enough padding to avoid overlap with close button */
+.leaflet-popup-content-wrapper.search-popup {
+    padding: 8px 25px 8px 8px; /* Extra right padding for close button */
+    min-width: 180px;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+    .coordinate-search-container {
+        top: 60px; /* Move below zoom controls on mobile */
+        left: 10px;
+        right: 10px;
+        width: auto; /* Allow responsive width on mobile */
+        max-width: calc(100vw - 20px); /* Prevent overflow */
+    }
+    .coordinate-search-input {
+        font-size: 14px; /* Slightly larger for mobile */
+    }
+    .search-location-popup {
+        min-width: 140px;
+        padding: 6px 10px;
+    }
+    .leaflet-popup-content-wrapper.search-popup {
+        padding: 6px 22px 6px 6px;
+        min-width: 160px;
+    }
+}
