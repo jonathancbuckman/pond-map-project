@@ -286,11 +286,11 @@ html, body {
 /* Mobile responsive adjustments */
 @media (max-width: 768px) {
     .coordinate-search-container {
-        top: 10px; /* Keep at same level as zoom controls */
-        left: 80px; /* Move further right to avoid zoom buttons */
+        top: 60px; /* Move below zoom controls and layers panel */
+        left: 10px; /* Align with left margin */
         right: 10px; /* Add right margin */
         width: auto; /* Allow responsive width */
-        max-width: calc(100vw - 90px); /* Ensure it doesn't go off screen */
+        max-width: calc(100vw - 20px); /* Full width minus margins */
         min-width: 200px; /* Minimum usable width */
     }
     
