@@ -1,0 +1,15 @@
+{
+  "PondID": "33-12N-08W-SWNW",
+  "PondName": "Reservoir S33 T12N R08W",
+  "SurveyDate": "2024-11-07",
+  "MaxDepth_ft": "5.773",
+  "DepthVolumeData": [
+    { "Depth": 0.0, "Volume": 670419, "SurfaceArea": 23.631 },
+    { "Depth": 1.0, "Volume": 494511, "SurfaceArea": 21.75 },
+    { "Depth": 2.0, "Volume": 332385, "SurfaceArea": 20.077 },
+    { "Depth": 3.0, "Volume": 183872, "SurfaceArea": 17.711 },
+    { "Depth": 4.0, "Volume": 75149, "SurfaceArea": 10.441 },
+    { "Depth": 5.0, "Volume": 12308, "SurfaceArea": 5.61 },
+    { "Depth": 5.773, "Volume": 0, "SurfaceArea": 0.0 }
+  ]
+}
