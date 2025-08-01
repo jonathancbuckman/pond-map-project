@@ -1,0 +1,24 @@
+{
+  "PondID": "17-12N-02W-NENE",
+  "PondName": "Reservoir S17 T12N R02W",
+  "SurveyDate": "2024-09-02",
+  "MaxDepth_ft": "14.206",
+  "DepthVolumeData": [
+    { "Depth": 0.0, "Volume": 184630, "SurfaceArea": 4.988 },
+    { "Depth": 1.0, "Volume": 148574, "SurfaceArea": 4.314 },
+    { "Depth": 2.0, "Volume": 117417, "SurfaceArea": 3.72 },
+    { "Depth": 3.0, "Volume": 91257, "SurfaceArea": 3.043 },
+    { "Depth": 4.0, "Volume": 69812, "SurfaceArea": 2.492 },
+    { "Depth": 5.0, "Volume": 52448, "SurfaceArea": 1.999 },
+    { "Depth": 6.0, "Volume": 38529, "SurfaceArea": 1.594 },
+    { "Depth": 7.0, "Volume": 27774, "SurfaceArea": 1.19 },
+    { "Depth": 8.0, "Volume": 20061, "SurfaceArea": 0.856 },
+    { "Depth": 9.0, "Volume": 14028, "SurfaceArea": 0.702 },
+    { "Depth": 10.0, "Volume": 9114, "SurfaceArea": 0.567 },
+    { "Depth": 11.0, "Volume": 5243, "SurfaceArea": 0.43 },
+    { "Depth": 12.0, "Volume": 2442, "SurfaceArea": 0.292 },
+    { "Depth": 13.0, "Volume": 738, "SurfaceArea": 0.15 },
+    { "Depth": 14.0, "Volume": 19, "SurfaceArea": 0.03 },
+    { "Depth": 14.206, "Volume": 0, "SurfaceArea": 0.0 }
+  ]
+}
