@@ -1,0 +1,15 @@
+{
+  "PondID": "25-04N-05W-SESW",
+  "PondName": "Reservoir S25 T04N R05W",
+  "SurveyDate": "2022-08-15",
+  "MaxDepth_ft": "5.950",
+  "DepthVolumeData": [
+    { "Depth": 0.0, "Volume": 14783, "SurfaceArea": 0.747 },
+    { "Depth": 1.0, "Volume": 9652, "SurfaceArea": 0.581 },
+    { "Depth": 2.0, "Volume": 5704, "SurfaceArea": 0.435 },
+    { "Depth": 3.0, "Volume": 2960, "SurfaceArea": 0.280 },
+    { "Depth": 4.0, "Volume": 1249, "SurfaceArea": 0.166 },
+    { "Depth": 5.0, "Volume": 320, "SurfaceArea": 0.079 },
+    { "Depth": 5.95, "Volume": 0, "SurfaceArea": 0.0 }
+  ]
+}
