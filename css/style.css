@@ -287,7 +287,7 @@ html, body {
 @media (max-width: 768px) {
     .coordinate-search-container {
         top: auto; /* Remove top positioning */
-        bottom: 20px; /* Position from bottom of screen */
+        bottom: 72px; /* lift above sticky footer to avoid overlap (was 20px) */
         left: 10px; /* Align with left margin */
         right: 10px; /* Add right margin */
         width: auto; /* Allow responsive width */
@@ -436,6 +436,7 @@ body {
 #map {
     flex: 1 1 auto; /* Map grows to fill space above footer */
     height: auto;   /* Let flexbox control height */
+    padding-bottom: 60px; /* add space so bottom UI isn't hidden by footer */
 }
 
 /* --- THIN FOOTER --- */
@@ -472,6 +473,9 @@ body {
 @media (max-width: 480px) {
     .site-footer {
         padding: 8px 8px;
+        position: sticky; /* keep footer visible but avoid covering bottom UI */
+        bottom: 6px;      /* lift it slightly above iOS Safari bottom chrome */
+        z-index: 1100;
     }
     .footer-link {
         padding: 6px 8px;
