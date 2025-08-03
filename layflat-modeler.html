@@ -829,8 +829,9 @@
       // Create a hybrid group (satellite + labels)
       const hybrid = L.layerGroup([esriSat, esriLabels]);
 
-      // Add default base (OSM)
-      osm.addTo(mapInstance);
+      // Add default base (Satellite with labels - Hybrid)
+      // Turn on hybrid (satellite + labels) by default so users see imagery immediately.
+      hybrid.addTo(mapInstance);
 
       // Pump layer lives above basemap(s)
       pumpLayer = L.layerGroup().addTo(mapInstance);
