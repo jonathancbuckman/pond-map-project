@@ -1285,7 +1285,8 @@
       const hoseIn = Number(elHoseSize.value);
       const sourcePsi = Number(elSourcePsi.value);
       const midlinePsi = Number(elMidlinePsi.value);
-      const minSuction = Number(elMinSuction.value);
+      // Manual-only: no user min suction; keep zero for compatibility
+      const minSuction = 0;
       const maxHose = Number(elMaxHose.value);
       const reqOutlet = Number(elReqOutlet.value);
       const lossMethod = currentLossMethod();
@@ -1369,6 +1370,8 @@
       // Determine friction loss we used (for manual recompute reuse)
       window.__lastUsedPsiLossPer100 = usedPsiLossPer100;
       window.__lastWarnings = warnings;
+
+      // Manual-only: minSuction already defined earlier in scope as 0
 
       // Auto midline pump placement: choose algorithm by Pump Logic
       let auto;
