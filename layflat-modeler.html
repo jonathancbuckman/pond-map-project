@@ -1096,14 +1096,12 @@
       const chartDistances = distances.slice(0, minLength);
       const chartPressures = pressures.slice(0, minLength);
       
-      // Create labels and min suction line
+      // Create labels
       const labels = chartDistances.map(d => Number(d).toFixed(0));
-      const minSuctionLine = new Array(chartDistances.length).fill(Number(minSuction));
       
-      console.log('Chart data:', { 
-        labels: labels.length, 
-        pressures: chartPressures.length, 
-        minSuction: minSuctionLine.length 
+      console.log('Chart data:', {
+        labels: labels.length,
+        pressures: chartPressures.length
       });
       
       chartInstance = new Chart(chartCanvas.getContext('2d'), {
@@ -1119,15 +1117,6 @@
               pointRadius: 1.5,
               tension: 0,
               fill: false
-            },
-            {
-              label: 'Min Inlet (PSI)',
-              data: minSuctionLine,
-              borderColor: '#ffc107',
-              borderDash: [6,6],
-              pointRadius: 0,
-              tension: 0,
-              fill: false
             }
           ]
         },
@@ -1139,13 +1128,13 @@
             mode: 'index'
           },
           scales: {
-            x: { 
+            x: {
               title: { display: true, text: 'Distance (ft)' },
               type: 'category'
             },
-            y: { 
-              title: { display: true, text: 'Pressure (PSI)' }, 
-              beginAtZero: true 
+            y: {
+              title: { display: true, text: 'Pressure (PSI)' },
+              beginAtZero: true
             }
           },
           plugins: {
