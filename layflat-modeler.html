@@ -1265,7 +1265,7 @@
         reqOutlet: Number(elReqOutlet.value),
         lossMethod: currentLossMethod(),
         manualPsi100: Number(elManualPsi100.value),
-        placementStrategy: (elPlacementStrategy?.value) || 'fixed_setpoint',
+        placementStrategy: 'manual',
         pathDir: currentPathDir(),
         results: {
           totalFt,
@@ -1276,7 +1276,7 @@
         },
         profile: { distances, pressures },
         pumpsSummary: (window.__lastPumps || []),
-        placementStrategy: (window.__lastPlacementStrategy || (elPlacementStrategy?.value) || 'fixed_setpoint')
+        placementStrategy: 'manual'
       };
     }
 
@@ -1292,7 +1292,7 @@
       const lossMethod = currentLossMethod();
       const manualPsi100 = Number(elManualPsi100.value);
       const pathDir = currentPathDir();
-      const placementStrategy = (elPlacementStrategy?.value) || 'fixed_setpoint';
+      const placementStrategy = 'manual';
 
       const warnings = [];
       if (!(flowBpm >= 0)) warnings.push('Flow rate (BPM) must be >= 0.');
