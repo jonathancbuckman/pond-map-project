@@ -1351,7 +1351,7 @@
         reqOutlet: Number(elReqOutlet.value),
         lossMethod: currentLossMethod(),
         manualPsi100: Number(elManualPsi100.value),
-        placementStrategy: 'minimized',
+        placementStrategy: (elPlacementStrategy?.value) || 'fixed_setpoint',
         pathDir: currentPathDir(),
         results: {
           totalFt,
@@ -1600,7 +1600,9 @@
       // Map render
       renderPathOnMap(dsLatLngs, auto.pumps);
       // Keep pumps for report details (raw inlet preserved)
+      // Also persist the actual placement strategy used for the run (for report header)
       window.__lastPumps = Array.isArray(auto.pumps) ? auto.pumps.map(p => ({...p})) : [];
+      window.__lastPlacementStrategy = placementStrategy;
 
       // If algorithm declared infeasible, surface an explicit warning and set outlet/met accordingly
       if (auto.infeasible) {
@@ -1709,7 +1711,7 @@
                   <div class="kv"><div class="k">Min Inlet (Suction)</div><div class="v">${fmt(state.minSuction,1)} PSI</div></div>
                   <div class="kv"><div class="k">Desired Min Outlet</div><div class="v">${fmt(state.reqOutlet,1)} PSI</div></div>
                   <div class="kv"><div class="k">Max Hose PSI</div><div class="v">${fmt(state.maxHose,0)} PSI</div></div>
-                  <div class="kv"><div class="k">Pump Logic</div><div class="v">${state.placementStrategy}</div></div>
+                  <div class="kv"><div class="k">Pump Logic</div><div class="v">${state.placementStrategy || (window.__lastPlacementStrategy||'')}</div></div>
                 </div>
                 ${isFinite(npshrWithMarginFt) ? `<div class="note">NPSHR baseline (min across families) ≈ ${fmt(npshrWithMarginFt,0)} ft (incl. 5 ft margin) at ${fmt(qgpm,0)} gpm</div>` : ''}
               </div>
