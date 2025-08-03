@@ -1265,19 +1265,23 @@
         }
       }
 
-      // If no KML path provided, block calculation and prompt user
+      // If no KML path provided, block calculation silently and prompt user in path section
       if (!latlngs.length) {
-        warnings.push('Please upload a KML file containing a LineString path to proceed.');
+        const reportBtn = document.getElementById('generate-report');
+        if (reportBtn) reportBtn.disabled = true;
+        delete window.__modelerLastRun;
+
         elMapSection.style.display = 'none';
-        // Show warnings only
-        elResults.style.display = 'block';
-        elOutDist.textContent = '—';
-        elOutUsedLoss.textContent = usedPsiLossPer100 ? (usedPsiLossPer100.toFixed(4) + ' PSI/100ft') : '—';
-        elOutFinalPsi.textContent = '—';
-        elOutPumpCount.textContent = '—';
-        elOutOutletMet.innerHTML = '<span class="badge bad">No</span>';
-        elWarningsWrap.style.display = 'block';
-        elWarningsList.innerHTML = '<li>Upload a valid KML path first.</li>';
+        elResults.style.display = 'none';
+        elChartSection.style.display = 'none';
+        elWarningsWrap.style.display = 'none';
+        elWarningsList.innerHTML = '';
+
+        const pathStatus = document.getElementById('path-status');
+        if (pathStatus) {
+          pathStatus.style.display = 'block';
+          pathStatus.textContent = 'No path loaded. Upload a KML to run.';
+        }
         return;
       }
 
@@ -1501,23 +1505,7 @@
       reportBtn.addEventListener('click', openReport);
     }
 
-    // --- Auto-refresh mechanics to prevent stale/incorrect results after edits ---
-
-    // Debounced runner to avoid thrashing while the user is typing
-    let autoRunTimer = null;
-    const AUTO_RUN_DELAY = 400; // ms
-
-    function queueAutoRun() {
-      // Only auto-run when a path has been loaded
-      const hasPath = (elKmlFile.files && elKmlFile.files[0]) || (pathLayer && mapInstance);
-      if (!hasPath) return;
-
-      clearTimeout(autoRunTimer);
-      autoRunTimer = setTimeout(() => {
-        // Re-run with current inputs
-        runCalc().catch(err => console.warn('Auto-run error:', err));
-      }, AUTO_RUN_DELAY);
-    }
+    // --- Input-change mechanics: no auto-run; require explicit Run Calculation ---
 
     // Clear derived UI when inputs change to prevent reading stale values
     function clearDerivedUI() {
@@ -1526,52 +1514,51 @@
       elChartSection.style.display = 'none';
       // Keep map section visible but clear pumps so user sees path without stale boosts
       if (pumpLayer) { try { pumpLayer.clearLayers(); } catch {} }
+      // Disable report and clear last run to avoid stale report generation
+      const reportBtn = document.getElementById('generate-report');
+      if (reportBtn) reportBtn.disabled = true;
+      delete window.__modelerLastRun;
     }
 
-    // Whenever a user changes inputs that affect hydraulics, schedule an auto re-run
+    // Whenever a user changes inputs that affect hydraulics, just clear derived UI (no auto run)
     const hydraulicInputs = [
       elFlowBpm, elHoseSize, elSourcePsi, elMidlinePsi,
       elMinSuction, elMaxHose, elReqOutlet, elManualPsi100, elPlacementStrategy
     ];
     hydraulicInputs.forEach(inp => {
       if (!inp) return;
-      inp.addEventListener('input', () => { clearDerivedUI(); queueAutoRun(); });
-      inp.addEventListener('change', () => { clearDerivedUI(); queueAutoRun(); });
+      inp.addEventListener('input', () => { clearDerivedUI(); });
+      inp.addEventListener('change', () => { clearDerivedUI(); });
     });
 
     // Friction loss method radios
     lossRadios.forEach(r => {
-      r.addEventListener('change', () => { updateManualVisibility(); clearDerivedUI(); queueAutoRun(); });
+      r.addEventListener('change', () => { updateManualVisibility(); clearDerivedUI(); });
     });
 
     // Path direction radios (reverse path)
     pathDirRadios.forEach(r => {
-      r.addEventListener('change', () => { clearDerivedUI(); queueAutoRun(); });
+      r.addEventListener('change', () => { clearDerivedUI(); });
     });
 
-    // When a new KML/KMZ is selected, clear outputs; auto-run after read completes via button or manual run
+    // When a new KML/KMZ is selected, clear outputs; user must press Run Calculation
     elKmlFile.addEventListener('change', () => {
       // Clear everything visual so a new file doesn't mix with old output
-      clearTimeout(autoRunTimer);
-      autoRunTimer = null;
       elResults.style.display = 'none';
       elChartSection.style.display = 'none';
+      const reportBtn = document.getElementById('generate-report');
+      if (reportBtn) reportBtn.disabled = true;
+      delete window.__modelerLastRun;
+
       if (chartInstance) { try { chartInstance.destroy(); } catch {} chartInstance = null; }
       if (mapInstance) {
         // Remove old layers/instance to ensure a clean start
         try { mapInstance.remove(); } catch {}
         mapInstance = null; pathLayer = null; pumpLayer = null;
       }
-      // No auto-run here since reading/parsing is async and requires runCalc; user can press Run Calculation,
-      // and subsequent parameter changes will auto-run.
     });
 
-    // Safety: also auto-run if the user focuses out of a field (ensures update on number spinners)
-    document.addEventListener('blur', (e) => {
-      if (hydraulicInputs.includes(e.target) || e.target?.name === 'loss-method' || e.target?.name === 'path-dir') {
-        clearDerivedUI(); queueAutoRun();
-      }
-    }, true);
+    // Remove previous auto-run blur handler: no-op now
   </script>
 </body>
 </html>
