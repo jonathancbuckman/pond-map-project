@@ -1231,33 +1231,41 @@
       };
     })();
 
-    // Compute discharge using pump curve: choose lowest RPM that supplies required head over a control horizon.
-    function computePumpDischargeByCurve({ inletPsi, maxHosePsi, flowBpm, psiLossPerFt, upcomingElevFt, upcomingDistFt, family='8HNTH' }) {
+    // Compute discharge using pump curve with selectable policy.
+    // policy: 'min' (lowest RPM meeting need), 'max' (highest RPM under max hose PSI), default 'max' for auto-pick.
+    function computePumpDischargeByCurve({ inletPsi, maxHosePsi, flowBpm, psiLossPerFt, upcomingElevFt, upcomingDistFt, family='8HNTH', policy='max' }) {
       const Qgpm = bpmToGpm(flowBpm);
       const fam = family === '8NHT4VA' ? PUMP_8NHT4VA : PUMP_8HNTH;
       const { minQ, maxQ } = fam.domain();
       const Qc = Math.max(minQ, Math.min(maxQ, Qgpm));
 
-      // Control horizon L to estimate near-term requirement where we place the pump
+      // Control horizon L to estimate head need near the placement
       const L = Math.max(1000, Math.min(6000, upcomingDistFt || 3000)); // 1k–6k ft
       const elevGainFt = Math.max(0, (upcomingElevFt || 0) * (L / Math.max(1, upcomingDistFt || L)));
       const frictionHeadFt = (psiLossPerFt * L) / PSI_PER_FOOT_WATER;
       const requiredHeadFt = elevGainFt + frictionHeadFt;
 
-      let pick = null;
-      for (const rpm of fam.rpms) {
+      // Evaluate all RPMs
+      const candidates = fam.rpms.map(rpm => {
         const H = fam.headAt(Qc, rpm);
-        if (H >= requiredHeadFt * 0.98) { pick = { rpm, H }; break; }
-      }
-      if (!pick) {
-        const rpm = fam.rpms[fam.rpms.length - 1];
-        pick = { rpm, H: fam.headAt(Qc, rpm) };
+        const boostPsi = H * PSI_PER_FOOT_WATER;
+        const dischargePsi = Math.min(inletPsi + boostPsi, maxHosePsi);
+        return { rpm, H, dischargePsi };
+      });
+
+      let pick;
+      if (policy === 'min') {
+        // Choose the lowest RPM that meets required head with small margin
+        pick = candidates.find(c => c.H >= requiredHeadFt * 0.98) || candidates[candidates.length - 1];
+      } else {
+        // 'max' policy: choose the highest RPM that does not exceed Max Hose PSI at discharge
+        // If multiple share the same discharge clamp (==maxHosePsi), take highest RPM among those; else take highest RPM overall.
+        const valid = candidates.filter(c => c.dischargePsi <= maxHosePsi + 1e-6);
+        pick = (valid.length ? valid[valid.length - 1] : candidates[candidates.length - 1]);
       }
 
-      const boostPsi = pick.H * PSI_PER_FOOT_WATER;
-      const dischargePsi = Math.min(inletPsi + boostPsi, maxHosePsi);
       const npshrFt = fam.npshrAt(Qc);
-      return { dischargePsi, rpm: pick.rpm, headAddedFt: pick.H, npshrFt, Qgpm: Qc };
+      return { dischargePsi: pick.dischargePsi, rpm: pick.rpm, headAddedFt: pick.H, npshrFt, Qgpm: Qc };
     }
 
     async function readKmlOrKmz(file) {
@@ -1486,7 +1494,7 @@
           const horizonElev = elevationsFt[aheadIdx] - elevationsFt[placeIdx];
           const inletAtPlace = simulateTo(i0, p, placeIdx);
 
-          function computeForFamily(famKey){
+          function computeForFamily(famKey, policy){
             return computePumpDischargeByCurve({
               inletPsi: Math.max(inletAtPlace, minSuction),
               maxHosePsi: maxHose,
@@ -1494,21 +1502,24 @@
               psiLossPerFt: lossPerFt,
               upcomingElevFt: horizonElev,
               upcomingDistFt: horizonDist,
-              family: famKey
+              family: famKey,
+              policy
             });
           }
           let curve;
           if (placementStrategy === 'curve_8hnth') {
-            curve = computeForFamily('8HNTH');
+            curve = computeForFamily('8HNTH','max');
           } else if (placementStrategy === 'curve_8nht4va') {
-            curve = computeForFamily('8NHT4VA');
+            curve = computeForFamily('8NHT4VA','max');
           } else {
-            // auto-pick: prefer family that meets required head with lowest RPM; tie-break on lower discharge
-            const c1 = computeForFamily('8HNTH');
-            const c2 = computeForFamily('8NHT4VA');
-            // lower RPM preferred; when incomparable (families have different RPM scales), use discharge as proxy
-            const rpmRank = (a,b) => (a.rpm||9999) - (b.rpm||9999);
-            const pick = (rpmRank(c1,c2) < 0) ? c1 : (rpmRank(c1,c2) > 0 ? c2 : (c1.dischargePsi <= c2.dischargePsi ? c1 : c2));
+            // auto-pick: choose 'max' policy for each family, then pick the one that yields higher discharge (more head)
+            // This tends to reduce total pump count while respecting Max Hose PSI.
+            const c1 = computeForFamily('8HNTH','max');
+            const c2 = computeForFamily('8NHT4VA','max');
+            const pick = (c1.dischargePsi > c2.dischargePsi + 1e-6) ? c1 : (c2.dischargePsi > c1.dischargePsi + 1e-6 ? c2 :
+                         // tie: prefer higher headAddedFt; else prefer lower RPM
+                         (c1.headAddedFt > c2.headAddedFt + 1e-6 ? c1 : (c2.headAddedFt > c1.headAddedFt + 1e-6 ? c2 :
+                         ((c1.rpm||9999) <= (c2.rpm||9999) ? c1 : c2))));
             curve = pick;
             curve.family = (pick === c1) ? '8HNTH' : '8NHT4VA';
           }
