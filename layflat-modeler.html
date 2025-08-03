@@ -305,6 +305,7 @@
       <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
         <button id="run-calc" class="btn">Run Calculation</button>
         <button id="reset-form" class="btn secondary">Reset</button>
+        <button id="generate-report" class="btn secondary" title="Open printable report in a new tab" disabled>Generate Report</button>
       </div>
     </section>
 
@@ -1193,6 +1194,34 @@
 
       elChartSection.style.display = 'block';
       renderChart(distances, pressures, minSuction);
+
+      // Enable report button now that we have a successful run
+      const reportBtn = document.getElementById('generate-report');
+      if (reportBtn) reportBtn.disabled = false;
+
+      // Store the latest run dataset on window for report generation
+      window.__modelerLastRun = {
+        flowBpm: Number(elFlowBpm.value),
+        hoseIn: Number(elHoseSize.value),
+        sourcePsi: Number(elSourcePsi.value),
+        midlinePsi: Number(elMidlinePsi.value),
+        minSuction: Number(elMinSuction.value),
+        maxHose: Number(elMaxHose.value),
+        reqOutlet: Number(elReqOutlet.value),
+        lossMethod: currentLossMethod(),
+        manualPsi100: Number(elManualPsi100.value),
+        placementStrategy: elPlacementStrategy?.value || 'reactive',
+        pathDir: currentPathDir(),
+        results: {
+          totalFt,
+          usedPsiLossPer100,
+          finalPressure,
+          pumpCount,
+          warnings: [...warnings]
+        },
+        profile: { distances, pressures },
+        pumpsSummary: (window.__lastPumps || [])
+      };
     }
 
     async function runCalc() {
@@ -1301,12 +1330,176 @@
 
       // Map render
       renderPathOnMap(dsLatLngs, auto.pumps);
+      // Keep pumps for report details
+      window.__lastPumps = Array.isArray(auto.pumps) ? auto.pumps.map(p => ({...p})) : [];
 
       // Results + chart
       renderResults(totalFt, usedPsiLossPer100, auto.finalPressure, reqOutlet, auto.pumps.length, warnings, distancesForChart, pressures, minSuction);
     }
 
     document.getElementById('run-calc').addEventListener('click', runCalc);
+
+    // --- Printable Report (new tab) ---
+    function milesFromFeet(ft) { return (Number(ft||0) / 5280); }
+    function fmt(n, digits=1) { return isFinite(n) ? Number(n).toFixed(digits) : '—'; }
+
+    function buildReportHtml(state) {
+      const dt = new Date();
+      const dateStr = dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString();
+      const totalMi = milesFromFeet(state.results.totalFt);
+      const usedLoss = state.results.usedPsiLossPer100;
+
+      // Build per-pump rows
+      const pumpRows = (state.pumpsSummary || []).map((p, i) => {
+        const distMi = milesFromFeet(p.distanceFt);
+        return `
+          <tr>
+            <td>#${i+1}</td>
+            <td>${fmt(distMi, 2)} mi</td>
+            <td>${fmt(p.pressureBefore, 1)} PSI</td>
+            <td>${fmt(p.discharge, 1)} PSI</td>
+          </tr>`;
+      }).join('') || `<tr><td colspan="4">No midline pumps placed</td></tr>`;
+
+      // Inline CSS for print
+      const styles = `
+        <style>
+          @page { size: Letter; margin: 0.6in; }
+          body { font-family: 'ISOCPEUR', Arial, sans-serif; color:#222; }
+          .hdr { text-align:center; margin-bottom:8px; }
+          .title { font-size:22px; font-weight:700; margin:8px 0 2px; }
+          .subtitle { font-size:12px; color:#666; }
+          .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; margin: 14px 0; }
+          .kv { display:flex; gap:6px; font-size:13px; }
+          .kv .k { width: 56%; color:#444; }
+          .kv .v { flex:1; text-align:right; }
+          .section-h { font-size:16px; margin: 12px 0 6px; border-bottom:1px solid #e5e5e5; padding-bottom:4px; }
+          table { width:100%; border-collapse: collapse; font-size:13px; }
+          th, td { border: 1px solid #e5e5e5; padding:6px 8px; text-align:left; }
+          th { background:#f8f8ff; }
+          .center { text-align:center; }
+          .chart { width:100%; height:300px; margin-top:8px; border:1px solid #eee; }
+          .footer { text-align:center; font-size:11px; color:#777; margin-top:10px; }
+          .badge { display:inline-block; padding:2px 8px; border-radius:12px; color:#fff; font-size:11px; }
+          .good { background:#198754; }
+          .bad { background:#dc3545; }
+        </style>
+      `;
+
+      // We embed profile arrays to render a simple SVG chart (no external libs)
+      const distances = state.profile.distances || [];
+      const pressures = state.profile.pressures || [];
+      const svg = buildSimplePressureSvg(distances, pressures, state.minSuction);
+
+      const outletMet = state.results.finalPressure >= state.reqOutlet;
+      return `
+        <!doctype html>
+        <html>
+          <head><meta charset="utf-8">${styles}<title>Layflat Line Report</title></head>
+          <body>
+            <div class="hdr">
+              <div class="title">Line Profile Report</div>
+              <div class="subtitle">Generated ${dateStr}</div>
+            </div>
+
+            <div class="grid">
+              <div class="kv"><div class="k">Desired Rate</div><div class="v">${fmt(state.flowBpm,0)} BPM</div></div>
+              <div class="kv"><div class="k">Distance</div><div class="v">${fmt(totalMi,2)} miles</div></div>
+
+              <div class="kv"><div class="k">Hose</div><div class="v">${fmt(state.hoseIn,0)} in</div></div>
+              <div class="kv"><div class="k">Friction Loss</div><div class="v">${fmt(usedLoss,4)} PSI/100 ft</div></div>
+
+              <div class="kv"><div class="k">Max Hose PSI</div><div class="v">${fmt(state.maxHose,0)} PSI</div></div>
+              <div class="kv"><div class="k">Placement Strategy</div><div class="v">${state.placementStrategy}</div></div>
+
+              <div class="kv"><div class="k">Source Discharge</div><div class="v">${fmt(state.sourcePsi,1)} PSI</div></div>
+              <div class="kv"><div class="k">Midline Discharge Setpoint</div><div class="v">${fmt(state.midlinePsi,1)} PSI</div></div>
+
+              <div class="kv"><div class="k">Min Inlet (Suction)</div><div class="v">${fmt(state.minSuction,1)} PSI</div></div>
+              <div class="kv"><div class="k">Desired Min Outlet</div><div class="v">${fmt(state.reqOutlet,1)} PSI</div></div>
+
+              <div class="kv"><div class="k">Final Outlet Pressure</div><div class="v">${fmt(state.results.finalPressure,1)} PSI</div></div>
+              <div class="kv"><div class="k">Outlet Met?</div><div class="v"><span class="badge ${outletMet?'good':'bad'}">${outletMet?'Yes':'No'}</span></div></div>
+
+              <div class="kv"><div class="k">Midline Pumps Placed</div><div class="v">${(state.pumpsSummary||[]).length}</div></div>
+              <div class="kv"><div class="k">Loss Method</div><div class="v">${state.lossMethod}</div></div>
+            </div>
+
+            <div class="section-h">Midline Pumps</div>
+            <table>
+              <thead><tr><th>#</th><th>Distance</th><th>Inlet PSI</th><th>Discharge PSI</th></tr></thead>
+              <tbody>${pumpRows}</tbody>
+            </table>
+
+            <div class="section-h">Pressure Profile</div>
+            <div class="chart">${svg}</div>
+
+            ${state.results.warnings && state.results.warnings.length ? `
+              <div class="section-h">Warnings</div>
+              <ul>${state.results.warnings.map(w => `<li>${w}</li>`).join('')}</ul>
+            ` : ''}
+
+            <div class="footer">Print or Save as PDF using your browser</div>
+          </body>
+        </html>
+      `;
+    }
+
+    // Render a basic SVG pressure chart without external libraries
+    function buildSimplePressureSvg(distances, pressures, minLine) {
+      if (!Array.isArray(distances) || !Array.isArray(pressures) || distances.length < 2) {
+        return '<div class="center" style="padding:20px;color:#666;">No chart data</div>';
+      }
+      const width = 900, height = 300, padL = 50, padR = 10, padT = 10, padB = 30;
+      const minX = distances[0], maxX = distances[distances.length-1];
+      let minY = Math.min(...pressures);
+      let maxY = Math.max(...pressures, minLine||0);
+      if (!isFinite(minY) || !isFinite(maxY) || minY === maxY) { minY = 0; maxY = 1; }
+      const sx = x => padL + (x - minX) * (width - padL - padR) / (maxX - minX || 1);
+      const sy = y => height - padB - (y - minY) * (height - padT - padB) / (maxY - minY || 1);
+
+      // Build polyline points
+      const pts = distances.map((d,i) => `${sx(d)},${sy(pressures[i])}`).join(' ');
+
+      // Min suction line
+      const minYLine = isFinite(minLine) ? `
+        <line x1="${sx(minX)}" y1="${sy(minLine)}" x2="${sx(maxX)}" y2="${sy(minLine)}"
+              stroke="#ffc107" stroke-width="2" stroke-dasharray="6,6" />
+      ` : '';
+
+      return `
+        <svg viewBox="0 0 ${width} ${height}" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="0" width="${width}" height="${height}" fill="white" />
+          <!-- Axes -->
+          <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${height-padB}" stroke="#aaa" stroke-width="1"/>
+          <line x1="${padL}" y1="${height-padB}" x2="${width-padR}" y2="${height-padB}" stroke="#aaa" stroke-width="1"/>
+          <!-- Data -->
+          ${minYLine}
+          <polyline fill="none" stroke="#0b5fff" stroke-width="2" points="${pts}" />
+        </svg>
+      `;
+    }
+
+    function openReport() {
+      const state = window.__modelerLastRun;
+      if (!state) {
+        alert('Run a calculation with a valid path before generating a report.');
+        return;
+      }
+      const html = buildReportHtml(state);
+      const w = window.open('', '_blank');
+      if (!w) { alert('Popup blocked. Allow popups to view the report.'); return; }
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+      // Try to trigger print preview after load for convenience
+      w.onload = () => { try { w.focus(); } catch {} };
+    }
+
+    const reportBtn = document.getElementById('generate-report');
+    if (reportBtn) {
+      reportBtn.addEventListener('click', openReport);
+    }
 
     // --- Auto-refresh mechanics to prevent stale/incorrect results after edits ---
 
