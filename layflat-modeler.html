@@ -1691,7 +1691,7 @@
         PUMP_8NHTA ? PUMP_8NHTA.npshrAt(q8v) : Infinity
       );
       const npshMarginFt = 5;
-      const npshrWithMarginFt = isFinite(npshrMinFt) ? (npshrMinFt + npshMarginFt) : undefined;
+      const npshrWithMarginFt = undefined; // suppress NPSHR note in manual-mode report
 
       // Build per-pump rows with curve details where available
       const pumpRows = (state.pumpsSummary || []).map((p, i) => {
@@ -1775,13 +1775,12 @@
                   <div class="kv"><div class="k">Hose Diameter</div><div class="v">${fmt(state.hoseIn,0)} in</div></div>
                   <div class="kv"><div class="k">Hose Runs</div><div class="v">${runsLabel}</div></div>
                   <div class="kv"><div class="k">Friction Loss</div><div class="v">${fmt(usedLoss,4)} PSI/100 ft</div></div>
-                  <div class="kv"><div class="k">Min Inlet (Suction)</div><div class="v">${fmt(state.minSuction,1)} PSI</div></div>
                   <div class="kv"><div class="k">Desired Min Outlet</div><div class="v">${fmt(state.reqOutlet,1)} PSI</div></div>
                   <div class="kv"><div class="k">Max Hose PSI</div><div class="v">${fmt(state.maxHose,0)} PSI</div></div>
                   <div class="kv"><div class="k">Loss Method</div><div class="v">${state.lossMethod}</div></div>
                   <div class="kv"><div class="k">Path Direction</div><div class="v">${state.pathDir === 'dest_to_source' ? 'Destination → Source' : 'Source → Destination'}</div></div>
                 </div>
-                ${isFinite(npshrWithMarginFt) ? `<div class="note">NPSHR baseline (min across families) ≈ ${fmt(npshrWithMarginFt,0)} ft (incl. 5 ft margin) at ${fmt(qgpm,0)} gpm</div>` : ''}
+                <!-- NPSHR note intentionally removed for manual-mode report -->
                 <div class="chips">
                   <span class="chip">Source Discharge: ${fmt(state.sourcePsi,1)} PSI</span>
                   <span class="chip">Midline Setpoint: ${fmt(state.midlinePsi,1)} PSI</span>
@@ -1825,21 +1824,34 @@
       }
       const width = 900, height = 300, padL = 60, padR = 10, padT = 10, padB = 38;
       const minX = distances[0], maxX = distances[distances.length-1];
-      // Allow profile to extend below the minimum suction line
-      const minInclude = isFinite(minLine) ? Math.min(minLine, Math.min(...pressures)) : Math.min(...pressures);
-      let minY = minInclude;
-      let maxY = Math.max(...pressures, isFinite(minLine) ? minLine : -Infinity);
+
+      // Include both min inlet reference (optional) and a solid red Max Hose line
+      const maxHosePsi = Number(window.__modelerLastRun?.maxHose ?? 0);
+
+      // Determine Y extents considering pressures, min line, and max hose reference
+      const valuesForY = [...pressures];
+      if (isFinite(minLine)) valuesForY.push(minLine);
+      if (isFinite(maxHosePsi)) valuesForY.push(maxHosePsi);
+      let minY = Math.min(...valuesForY);
+      let maxY = Math.max(...valuesForY);
       if (!isFinite(minY) || !isFinite(maxY) || minY === maxY) { minY = 0; maxY = 1; }
+
       const sx = x => padL + (x - minX) * (width - padL - padR) / (maxX - minX || 1);
       const sy = y => height - padB - (y - minY) * (height - padT - padB) / (maxY - minY || 1);
 
       // Build polyline points
       const pts = distances.map((d,i) => `${sx(d)},${sy(pressures[i])}`).join(' ');
 
-      // Min suction line
+      // Min inlet (dashed amber), optional
       const minYLine = isFinite(minLine) ? `
         <line x1="${sx(minX)}" y1="${sy(minLine)}" x2="${sx(maxX)}" y2="${sy(minLine)}"
               stroke="#ffc107" stroke-width="2" stroke-dasharray="6,6" />
+      ` : '';
+
+      // Max hose (solid red)
+      const maxHoseLine = isFinite(maxHosePsi) && maxHosePsi > 0 ? `
+        <line x1="${sx(minX)}" y1="${sy(maxHosePsi)}" x2="${sx(maxX)}" y2="${sy(maxHosePsi)}"
+              stroke="#dc3545" stroke-width="2" />
       ` : '';
 
       return `
@@ -1853,6 +1865,7 @@
           <text class="axis-label" transform="translate(12 ${(padT + (height - padB)) / 2}) rotate(-90)" text-anchor="middle">Pressure (PSI)</text>
           <!-- Data -->
           ${minYLine}
+          ${maxHoseLine}
           <polyline fill="none" stroke="#0b5fff" stroke-width="2" points="${pts}" />
         </svg>
       `;
