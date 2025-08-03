@@ -164,6 +164,61 @@
       border: 1px solid #e5e5e5;
       border-radius: 10px;
     }
+
+    /* Manual Pump List layout */
+    .manual-pump-list {
+      display: grid;
+      gap: 10px;
+    }
+    .manual-pump-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 280px auto;
+      gap: 10px 12px;
+      align-items: end;
+      margin-bottom: 4px;
+    }
+    .mp-col--id,
+    .mp-col--inlet {
+      font-size: 14px;
+      line-height: 1.3;
+    }
+    .mp-col--disch {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      align-items: center;
+      gap: 8px;
+    }
+    .mp-label {
+      font-size: 12px;
+      color: #666;
+      margin: 0;
+      text-align: right;
+    }
+    .mp-input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: 'ISOCPEUR', Arial, sans-serif;
+      background: #fff;
+      color: #222;
+    }
+    .mp-col--actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+    }
+
+    /* Stack nicely on narrow screens */
+    @media (max-width: 640px) {
+      .manual-pump-row {
+        grid-template-columns: 1fr 1fr;
+      }
+      .mp-col--actions {
+        justify-content: flex-start;
+      }
+    }
   </style>
 </head>
 <body class="modeler-page">
@@ -308,7 +363,7 @@
         <div class="inline-help" style="margin-top:-6px;">
           Click on the red polyline to add a booster. Drag markers to move along the line. Click a marker to delete. Edit discharge setpoints below.
         </div>
-        <div id="manual-pump-list" style="margin-top:8px;"></div>
+        <div id="manual-pump-list" class="manual-pump-list" style="margin-top:8px;"></div>
       </div>
     </section>
 
@@ -821,27 +876,56 @@
         .sort((a,b) => a.distanceFt - b.distanceFt)
         .forEach((p, idx) => {
           const row = document.createElement('div');
-          row.style.display = 'grid';
-          row.style.gridTemplateColumns = '1fr 1fr 1fr 1fr';
-          row.style.gap = '8px';
-          row.style.alignItems = 'center';
-          row.style.marginBottom = '6px';
+          row.className = 'manual-pump-row';
           row.innerHTML = `
-            <div>#${idx+1} @ ${(p.distanceFt/5280).toFixed(2)} mi</div>
-            <div>Inlet: ${(p.pressureBefore ?? 0).toFixed(1)} PSI</div>
-            <div>
-              <label style="font-size:12px;color:#666;">Discharge PSI</label>
-              <input type="number" step="0.1" value="${Number(p.discharge||elMidlinePsi.value)}" style="width:100%;">
+            <div class="mp-col mp-col--id">#${idx+1} @ ${(p.distanceFt/5280).toFixed(2)} mi</div>
+            <div class="mp-col mp-col--inlet">Inlet: ${(p.pressureBefore ?? 0).toFixed(1)} PSI</div>
+            <div class="mp-col mp-col--disch">
+              <label class="mp-label" for="mp-dis-${idx}">Discharge PSI</label>
+              <input id="mp-dis-${idx}" class="mp-input" type="number" step="0.1" inputmode="decimal" value="${Number(p.discharge ?? elMidlinePsi.value)}">
             </div>
-            <button class="btn secondary" data-del="${idx}">Delete</button>
+            <div class="mp-col mp-col--actions">
+              <button class="btn secondary mp-del" data-del="${idx}">Delete</button>
+            </div>
           `;
-          // wire discharge edit
-          const inp = row.querySelector('input');
-          inp.addEventListener('input', () => { p.discharge = Number(inp.value||0); updateManualProfileAndUI(); });
+          // wire discharge edit: keep focus and allow continuous typing without re-clicking
+          const inp = row.querySelector('.mp-input');
+          // prevent update loop from rebuilding list while typing
+          let typing = false;
+          let rafId = null;
+          const liveUpdate = () => {
+            if (rafId) cancelAnimationFrame(rafId);
+            rafId = requestAnimationFrame(() => {
+              const v = Number(inp.value);
+              p.discharge = isFinite(v) ? v : 0;
+              // Update pressures and chart only, avoid rebuilding list to preserve focus
+              recomputeManualInlets();
+              const prof = computeProfileWithGivenPumps(manualDistFt, manualElevFt, Number(elSourcePsi.value), manualPumps, window.__lastUsedPsiLossPer100 || 0);
+              const finalPressure = prof.pressures.length ? prof.pressures[prof.pressures.length-1] : 0;
+              renderResults(manualDistFt[manualDistFt.length-1]||0, (window.__lastUsedPsiLossPer100||0), finalPressure, Number(elReqOutlet.value), manualPumps.length, (window.__lastWarnings||[]), prof.distances, prof.pressures, 0);
+            });
+          };
+          // On input, do lightweight update without rebuilding list
+          inp.addEventListener('input', liveUpdate);
+          // On blur or Enter, commit and then rebuild list for any formatting
+          const commitAndRebuild = () => {
+            const v = Number(inp.value);
+            p.discharge = isFinite(v) ? v : 0;
+            updateManualProfileAndUI();
+            // restore focus to same field index if still present
+            requestAnimationFrame(() => {
+              const again = document.getElementById('mp-dis-${idx}');
+              if (again) { try { again.focus(); again.setSelectionRange(again.value.length, again.value.length); } catch {} }
+            });
+          };
+          inp.addEventListener('change', commitAndRebuild);
+          inp.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); commitAndRebuild(); }
+          });
+          inp.addEventListener('blur', commitAndRebuild);
           // wire delete
-          const del = row.querySelector('button[data-del]');
+          const del = row.querySelector('.mp-del');
           del.addEventListener('click', () => {
-            // remove marker from map
             try { pumpLayer.removeLayer(p.marker); } catch {}
             manualPumps.splice(idx,1);
             updateManualProfileAndUI();
