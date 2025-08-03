@@ -276,9 +276,11 @@
           <label for="placement-strategy">Pump Logic</label>
           <select id="placement-strategy">
             <option value="fixed_setpoint" selected>Fixed Setpoint</option>
+            <option value="curve_auto">Pump Curve (Auto-pick family)</option>
             <option value="curve_8hnth">Pump Curve (Cornell 8HNTH)</option>
+            <option value="curve_8nht4va">Pump Curve (Cornell 8NHT4VA)</option>
           </select>
-          <div class="inline-help">Choose fixed discharge setpoint or use the 8HNTH pump curve with auto-RPM selection (1200/1400/1600/1800).</div>
+          <div class="inline-help">Choose fixed setpoint or curve-driven. Auto-pick considers 8HNTH (1200/1400/1600/1800 rpm) and 8NHT4VA (800/1000/1200/1400/1600/1770 rpm) and selects the lowest RPM that meets head without exceeding Max Hose PSI.</div>
         </div>
       </div>
 
@@ -1056,11 +1058,12 @@
             const rpmInfo = p.rpm ? `<br>RPM: ${p.rpm}` : '';
             const headInfo = p.headAddedFt ? `<br>Head Add: ${p.headAddedFt.toFixed(0)} ft` : '';
             const qInfo = p.qgpm ? `<br>Flow: ${p.qgpm.toFixed(0)} gpm` : '';
+            const famInfo = p.family ? `<br>Family: ${p.family}` : '';
             const marker = L.marker([lat, lon]).bindPopup(
               `<b>Midline Pump #${idx+1}</b><br>Distance: ${p.distanceFt.toFixed(0)} ft` +
               `<br>Inlet: ${p.pressureBefore.toFixed(1)} PSI` +
               `<br>Discharge: ${p.discharge.toFixed(1)} PSI` +
-              rpmInfo + headInfo + qInfo
+              rpmInfo + headInfo + qInfo + famInfo
             );
             pumpLayer.addLayer(marker);
           }
@@ -1173,7 +1176,7 @@
       };
     }
 
-    // Anchor points estimated from the provided chart (yellow region). These are coarse and can be refined.
+    // Anchor points estimated from charts. These are coarse and can be refined.
     // For each RPM band we map Q[gpm] -> Head[ft].
     const PUMP_8HNTH = (() => {
       const RPMS = [1200, 1400, 1600, 1800];
@@ -1201,10 +1204,41 @@
       };
     })();
 
+    // Lower-capacity family: Cornell 8NHT4VA (from second chart)
+    const PUMP_8NHT4VA = (() => {
+      const RPMS = [800,1000,1200,1400,1600,1770];
+      // Coarse anchors digitized from the provided chart (Q gpm -> Head ft)
+      const H_pts = {
+        800:  { Q:[ 500, 1000, 1500, 2000, 2500, 3000], H:[ 60,   70,   78,   85,   88,   85 ] },
+        1000: { Q:[ 700, 1200, 1800, 2400, 3000, 3600], H:[ 85,   95,  108,  118,  122,  118 ] },
+        1200: { Q:[ 900, 1500, 2200, 3000, 3600, 4200], H:[110,  125,  140,  150,  152,  145 ] },
+        1400: { Q:[1000, 1800, 2600, 3400, 4200, 4800], H:[140,  160,  180,  195,  205,  198 ] },
+        1600: { Q:[1200, 2000, 3000, 3800, 4600, 5200], H:[170,  195,  215,  235,  245,  238 ] },
+        1770: { Q:[1400, 2200, 3200, 4200, 5000, 5600], H:[200,  225,  250,  270,  285,  275 ] }
+      };
+      // NPSHR isolines 8–20 ft increasing with flow
+      const NPSHR_pts = { Q:[500,1000,1500,2000,2500,3000,4000,5000,5600], N:[8,9,10,11.5,13,14.5,16.5,18.5,20] };
+
+      const headFns = {};
+      RPMS.forEach(r => headFns[r] = pchip(H_pts[r].Q, H_pts[r].H));
+      const npshrFn = pchip(NPSHR_pts.Q, NPSHR_pts.N);
+
+      return {
+        rpms: RPMS,
+        headAt(Q, rpm) { return headFns[rpm](Q); },
+        npshrAt(Q) { return npshrFn(Q); },
+        domain() {
+          const minQ = 500, maxQ = 5600;
+          return { minQ, maxQ };
+        }
+      };
+    })();
+
     // Compute discharge using pump curve: choose lowest RPM that supplies required head over a control horizon.
-    function computePumpDischargeByCurve({ inletPsi, maxHosePsi, flowBpm, psiLossPerFt, upcomingElevFt, upcomingDistFt }) {
+    function computePumpDischargeByCurve({ inletPsi, maxHosePsi, flowBpm, psiLossPerFt, upcomingElevFt, upcomingDistFt, family='8HNTH' }) {
       const Qgpm = bpmToGpm(flowBpm);
-      const { minQ, maxQ } = PUMP_8HNTH.domain();
+      const fam = family === '8NHT4VA' ? PUMP_8NHT4VA : PUMP_8HNTH;
+      const { minQ, maxQ } = fam.domain();
       const Qc = Math.max(minQ, Math.min(maxQ, Qgpm));
 
       // Control horizon L to estimate near-term requirement where we place the pump
@@ -1214,18 +1248,18 @@
       const requiredHeadFt = elevGainFt + frictionHeadFt;
 
       let pick = null;
-      for (const rpm of PUMP_8HNTH.rpms) {
-        const H = PUMP_8HNTH.headAt(Qc, rpm);
+      for (const rpm of fam.rpms) {
+        const H = fam.headAt(Qc, rpm);
         if (H >= requiredHeadFt * 0.98) { pick = { rpm, H }; break; }
       }
       if (!pick) {
-        const rpm = PUMP_8HNTH.rpms[PUMP_8HNTH.rpms.length - 1];
-        pick = { rpm, H: PUMP_8HNTH.headAt(Qc, rpm) };
+        const rpm = fam.rpms[fam.rpms.length - 1];
+        pick = { rpm, H: fam.headAt(Qc, rpm) };
       }
 
       const boostPsi = pick.H * PSI_PER_FOOT_WATER;
       const dischargePsi = Math.min(inletPsi + boostPsi, maxHosePsi);
-      const npshrFt = PUMP_8HNTH.npshrAt(Qc);
+      const npshrFt = fam.npshrAt(Qc);
       return { dischargePsi, rpm: pick.rpm, headAddedFt: pick.H, npshrFt, Qgpm: Qc };
     }
 
@@ -1409,7 +1443,7 @@
 
       // Auto midline pump placement: choose algorithm by Pump Logic
       let auto;
-      if (placementStrategy === 'curve_8hnth') {
+      if (placementStrategy === 'curve_8hnth' || placementStrategy === 'curve_8nht4va' || placementStrategy === 'curve_auto') {
         const lossPerFt = usedPsiLossPer100 / 100.0;
         const pumps = [];
         let i0 = 0;
@@ -1455,14 +1489,32 @@
           const horizonElev = elevationsFt[aheadIdx] - elevationsFt[placeIdx];
           const inletAtPlace = simulateTo(i0, p, placeIdx);
 
-          const curve = computePumpDischargeByCurve({
-            inletPsi: Math.max(inletAtPlace, minSuction),
-            maxHosePsi: maxHose,
-            flowBpm: flowBpm,
-            psiLossPerFt: lossPerFt,
-            upcomingElevFt: horizonElev,
-            upcomingDistFt: horizonDist
-          });
+          function computeForFamily(famKey){
+            return computePumpDischargeByCurve({
+              inletPsi: Math.max(inletAtPlace, minSuction),
+              maxHosePsi: maxHose,
+              flowBpm: flowBpm,
+              psiLossPerFt: lossPerFt,
+              upcomingElevFt: horizonElev,
+              upcomingDistFt: horizonDist,
+              family: famKey
+            });
+          }
+          let curve;
+          if (placementStrategy === 'curve_8hnth') {
+            curve = computeForFamily('8HNTH');
+          } else if (placementStrategy === 'curve_8nht4va') {
+            curve = computeForFamily('8NHT4VA');
+          } else {
+            // auto-pick: prefer family that meets required head with lowest RPM; tie-break on lower discharge
+            const c1 = computeForFamily('8HNTH');
+            const c2 = computeForFamily('8NHT4VA');
+            // lower RPM preferred; when incomparable (families have different RPM scales), use discharge as proxy
+            const rpmRank = (a,b) => (a.rpm||9999) - (b.rpm||9999);
+            const pick = (rpmRank(c1,c2) < 0) ? c1 : (rpmRank(c1,c2) > 0 ? c2 : (c1.dischargePsi <= c2.dischargePsi ? c1 : c2));
+            curve = pick;
+            curve.family = (pick === c1) ? '8HNTH' : '8NHT4VA';
+          }
 
           pumps.push({
             index: placeIdx,
@@ -1471,7 +1523,8 @@
             discharge: curve.dischargePsi,
             rpm: curve.rpm,
             headAddedFt: curve.headAddedFt,
-            qgpm: curve.Qgpm
+            qgpm: curve.Qgpm,
+            family: curve.family || (placementStrategy === 'curve_8nht4va' ? '8NHT4VA' : '8HNTH')
           });
 
           // reset state
