@@ -711,14 +711,14 @@
           }
         }
 
-        // Compute inlet pressure at placement
+        // Compute inlet pressure at placement; clamp reported inlet to minimum suction for display
         const pressureAtPump = simulatePressure(currentIdx, currentPressure, placeIdx);
 
         // Add pump with fixed discharge (midlinePsi)
         pumps.push({
           index: placeIdx,
           distanceFt: distFt[placeIdx],
-          pressureBefore: pressureAtPump,
+          pressureBefore: Math.max(pressureAtPump, minSuctionPsi),
           discharge: midlinePsi
         });
 
@@ -855,8 +855,9 @@
           }
         }
 
-        const inletP = simulatePressure(currentIdx, currentPressure, placeIdx);
-        pumps.push({ index: placeIdx, distanceFt: distFt[placeIdx], pressureBefore: inletP, discharge: midlinePsi });
+        let inletP = simulatePressure(currentIdx, currentPressure, placeIdx);
+        const reportedInlet = Math.max(inletP, minSuctionPsi);
+        pumps.push({ index: placeIdx, distanceFt: distFt[placeIdx], pressureBefore: reportedInlet, discharge: midlinePsi });
         currentIdx = placeIdx;
         currentPressure = midlinePsi;
       }
