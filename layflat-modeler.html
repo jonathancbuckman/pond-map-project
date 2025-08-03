@@ -829,12 +829,12 @@
       // Create a hybrid group (satellite + labels)
       const hybrid = L.layerGroup([esriSat, esriLabels]);
 
-      // Add default base (OSM)
-      osm.addTo(mapInstance);
-
+      // Add default base (Satellite Hybrid by default)
+      hybrid.addTo(mapInstance);
+      
       // Pump layer lives above basemap(s)
       pumpLayer = L.layerGroup().addTo(mapInstance);
-
+      
       // Layer control to switch between basemaps
       const baseMaps = {
         'Streets (OSM)': osm,
@@ -842,7 +842,7 @@
         'Hybrid (Satellite + Labels)': hybrid
       };
       L.control.layers(baseMaps, null, { collapsed: true }).addTo(mapInstance);
-
+      
       return mapInstance;
     }
 
@@ -1027,6 +1027,7 @@
       window.__modelerLastRun.results.finalPressure = finalPressure;
       window.__lastPumps = manualPumps.map(p => ({ index:p.index, distanceFt:p.distanceFt, pressureBefore:p.pressureBefore, discharge:Number(p.discharge||0) }));
       window.__lastPlacementStrategy = 'manual';
+      window.__lastLatLngs = manualLatLngs;
     }
 
     function renderPathOnMap(latlngs, pumps) {
@@ -1636,6 +1637,8 @@
       // Also persist the actual placement strategy used for the run (for report header)
       window.__lastPumps = Array.isArray(auto.pumps) ? auto.pumps.map(p => ({...p})) : [];
       window.__lastPlacementStrategy = placementStrategy;
+      // Persist latest geometry for report map
+      window.__lastLatLngs = dsLatLngs;
 
       // If algorithm declared infeasible, surface an explicit warning and set outlet/met accordingly
       if (auto.infeasible) {
@@ -1720,6 +1723,12 @@
             fill: #666;
             font-family: 'ISOCPEUR', Arial, sans-serif;
           }
+          .mini-map {
+            width: 100%;
+            height: 220px;
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+          }
         </style>
       `;
 
@@ -1727,6 +1736,41 @@
       const distances = state.profile.distances || [];
       const pressures = state.profile.pressures || [];
       const svg = buildSimplePressureSvg(distances, pressures, state.minSuction);
+
+      // Build a simple leaflet-based static-ish map with path and pump markers
+      const hasGeom = Array.isArray(window.__lastLatLngs) && window.__lastLatLngs.length > 1;
+      const hasPumps = Array.isArray(state.pumpsSummary) && state.pumpsSummary.length > 0;
+      const mapBox = `
+        <div class="section-h">Booster Locations Map</div>
+        <div id="report-map" class="mini-map"></div>
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+        <script>
+          (function(){
+            try {
+              var latlngs = (window.opener && window.opener.__lastLatLngs) ? window.opener.__lastLatLngs : (window.__lastLatLngs||[]);
+              var pumps = (window.opener && window.opener.__lastPumps) ? window.opener.__lastPumps : (window.__lastPumps||[]);
+              if (!Array.isArray(latlngs) || latlngs.length < 2) return;
+              var m = L.map('report-map', { zoomControl: false, attributionControl: false });
+              var esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
+              var esriLabels = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
+              var hybrid = L.layerGroup([esriSat, esriLabels]).addTo(m);
+              var line = L.polyline(latlngs, { color:'#d33', weight:4, opacity:0.9 }).addTo(m);
+              if (Array.isArray(pumps)) {
+                pumps.forEach(function(p, i){
+                  if (p && typeof p.index === 'number' && p.index >= 0 && p.index < latlngs.length) {
+                    var ll = latlngs[p.index];
+                    L.circleMarker(ll, { radius:5, color:'#0057ff', weight:2, fillColor:'#0b5fff', fillOpacity:0.8 })
+                     .bindTooltip('Pump #' + (i+1) + ' @ ' + Math.round(p.distanceFt||0) + ' ft', { permanent:false })
+                     .addTo(m);
+                  }
+                });
+              }
+              m.fitBounds(line.getBounds().pad(0.1));
+            } catch(e) { /* ignore */ }
+          })();
+        </script>
+      `;
 
       const outletMet = state.results.finalPressure >= state.reqOutlet;
       return `
