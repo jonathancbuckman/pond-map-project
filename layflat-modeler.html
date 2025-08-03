@@ -177,12 +177,12 @@
       <h3>How to use this tool</h3>
       <p class="inline-help" style="max-width:880px;">
         This calculator estimates pressure along a layflat hose route and places midline pumps automatically to respect a minimum suction pressure.
-        It's a work in progress, I hacked it together in half a day on 8/3/25. I tested it with a few KML files that contain a single simple LineString, so try that if KMZ fails.
+        KML only: upload a .kml file that contains a single simple LineString path. KMZ is not supported.
         To get started:
       </p>
       <ol class="inline-help" style="max-width:880px; margin-top:6px; padding-left:18px;">
-        <li>Prepare a KML or KMZ file containing a single LineString that follows your hose path on the ground. You can draw this path in Google Earth or other GIS tools.</li>
-        <li>Upload the file below. Choose the drawing direction so the path begins at your Source pump and ends at the Destination (or reverse if needed).</li>
+        <li>Create a KML file containing one LineString that follows your hose path on the ground. You can draw this in Google Earth or other GIS tools.</li>
+        <li>Upload the KML below. Choose the drawing direction so the path begins at your Source pump and ends at the Destination (or reverse if needed).</li>
         <li>Set your hydraulic inputs (flow, hose diameter, pressure limits). Choose how friction loss is determined (lookup vs manual).</li>
         <li>Click "Run Calculation". You'll see:
           <ul style="margin:6px 0 0 18px;">
@@ -197,16 +197,16 @@
       </p>
     </section>
 
-    <!-- 1) Path first: user uploads KML/KMZ up front -->
+    <!-- 1) Path first: user uploads KML up front -->
     <section class="section-card">
-      <h3>Path (KML/KMZ)</h3>
+      <h3>Path (KML only)</h3>
       <p class="inline-help" style="margin-top:-6px;">
-        Upload a file containing one LineString. If the route was drawn from Destination back to Source, use the "Reverse" option so the simulation starts at the Source pump.
+        Upload a .kml file containing one LineString. If the route was drawn from Destination back to Source, use the "Reverse" option so the simulation starts at the Source pump.
       </p>
       <div class="form-grid">
         <div class="field">
-          <label for="kml-file">Upload KML or KMZ (LineString path)</label>
-          <input id="kml-file" type="file" accept=".kml,.kmz">
+          <label for="kml-file">Upload KML (LineString path)</label>
+          <input id="kml-file" type="file" accept=".kml">
           <div class="inline-help">Up to ~2,000 points are used (downsampling applied if needed). Direction can be reversed below.</div>
         </div>
         <div class="field">
@@ -305,7 +305,7 @@
         Click markers for details.
       </p>
       <div id="modeler-map"></div>
-      <div class="inline-help" id="map-hint" style="margin-top:6px;">Path and pump markers will display here after KML/KMZ processing.</div>
+      <div class="inline-help" id="map-hint" style="margin-top:6px;">Path and pump markers will display here after KML processing.</div>
     </section>
 
     <section class="section-card" id="results-section" style="display:none;">
@@ -440,12 +440,9 @@
       return latlngs;
     }
 
-    // Read KMZ -> first KML file content string
+    // KMZ parsing intentionally unsupported to simplify client-side; KML only.
     async function extractKmlFromKmz(file) {
-      // Use browser-unpacked zip via JSZip; to avoid new lib, do simple check here:
-      // If we don't have JSZip, fallback: reject with message.
-      // For minimal restructuring, we support KML directly now and show note for KMZ.
-      throw new Error('KMZ parsing requires a zip library (not included). Please upload a .kml file for now.');
+      throw new Error('KMZ is not supported. Please upload a .kml file.');
     }
 
     // Fetch elevations for latlngs via OpenTopoData in batches; returns meters array
@@ -758,11 +755,42 @@
       if (mapInstance) return mapInstance;
       elMapSection.style.display = 'block';
       mapInstance = L.map('modeler-map', { zoomControl: true }).setView([35.5, -98.5], 6);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+
+      // Base layers
+      const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '© OpenStreetMap contributors'
-      }).addTo(mapInstance);
+      });
+
+      // Esri World Imagery (satellite)
+      const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
+      });
+
+      // Esri World Boundaries and Places (labels) to create a hybrid overlay
+      const esriLabels = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: 'Labels © Esri'
+      });
+
+      // Create a hybrid group (satellite + labels)
+      const hybrid = L.layerGroup([esriSat, esriLabels]);
+
+      // Add default base (OSM)
+      osm.addTo(mapInstance);
+
+      // Pump layer lives above basemap(s)
       pumpLayer = L.layerGroup().addTo(mapInstance);
+
+      // Layer control to switch between basemaps
+      const baseMaps = {
+        'Streets (OSM)': osm,
+        'Satellite (Esri World Imagery)': esriSat,
+        'Hybrid (Satellite + Labels)': hybrid
+      };
+      L.control.layers(baseMaps, null, { collapsed: true }).addTo(mapInstance);
+
       return mapInstance;
     }
 
@@ -884,10 +912,9 @@
         const text = await file.text();
         return text;
       } else if (name.endsWith('.kmz')) {
-        // Placeholder: need JSZip or similar. For now, show error to user.
-        throw new Error('KMZ upload not supported in-browser without a zip library. Please provide a .kml file.');
+        throw new Error('Unsupported file type: KMZ is not supported. Please upload a .kml file.');
       } else {
-        throw new Error('Unsupported file type. Upload a .kml or .kmz file.');
+        throw new Error('Unsupported file type. Please upload a .kml file.');
       }
     }
 
@@ -990,7 +1017,7 @@
 
       // If no KML path provided, block calculation and prompt user
       if (!latlngs.length) {
-        warnings.push('Please upload a KML or KMZ file containing a LineString path to proceed.');
+        warnings.push('Please upload a KML file containing a LineString path to proceed.');
         elMapSection.style.display = 'none';
         // Show warnings only
         elResults.style.display = 'block';
@@ -1000,7 +1027,7 @@
         elOutPumpCount.textContent = '—';
         elOutOutletMet.innerHTML = '<span class="badge bad">No</span>';
         elWarningsWrap.style.display = 'block';
-        elWarningsList.innerHTML = '<li>Upload a valid KML/KMZ path first.</li>';
+        elWarningsList.innerHTML = '<li>Upload a valid KML path first.</li>';
         return;
       }
 
