@@ -1370,6 +1370,7 @@
       window.__modelerLastRun = {
         flowBpm: Number(elFlowBpm.value),
         hoseIn: Number(elHoseSize.value),
+        hoseRuns: Number(document.getElementById('hose-runs')?.value || 1),
         sourcePsi: Number(elSourcePsi.value),
         midlinePsi: Number(elMidlinePsi.value),
         minSuction: 0,
@@ -1712,30 +1713,33 @@
           </tr>`;
       }).join('') || `<tr><td colspan="8">No midline pumps placed</td></tr>`;
 
-      // Inline CSS optimized for 8.5x11 portrait
+      // Inline CSS optimized for 8.5x11 portrait, narrow centered stack
       const styles = `
         <style>
-          @page { size: 8.5in 11in; margin: 0.5in; }
-          :root { --fg:#222; --muted:#666; --line:#e5e5e5; --accent:#0b5fff; }
-          body { font-family: 'ISOCPEUR', Arial, sans-serif; color:var(--fg); }
-          .hdr { text-align:center; margin-bottom:6px; }
-          .title { font-size:20px; font-weight:700; margin:4px 0 0; }
+          @page { size: 8.5in 11in; margin: 0.4in; }
+          :root { --fg:#222; --muted:#666; --line:#e5e5e5; --accent:#0b5fff; --soft:#f6f8ff; }
+          * { box-sizing: border-box; }
+          body { font-family: 'ISOCPEUR', Arial, sans-serif; color:var(--fg); background:white; }
+          .wrap { max-width: 720px; margin: 0 auto; }
+          .hdr { text-align:center; margin: 4px 0 10px; }
+          .title { font-size:20px; font-weight:700; margin:2px 0 0; }
           .subtitle { font-size:11px; color:var(--muted); }
-          .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; margin: 10px 0; }
-          .kv { display:flex; gap:6px; font-size:12px; line-height:1.25; }
-          .kv .k { width: 56%; color:#444; }
-          .kv .v { flex:1; text-align:right; }
-          .section-h { font-size:14px; margin: 10px 0 6px; border-bottom:1px solid var(--line); padding-bottom:3px; }
+          .card { border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:#fff; }
+          .section-h { font-size:13px; margin: 0 0 6px; color:#333; }
+          .stack { display:grid; grid-template-columns: 1fr; gap:6px; }
+          .kv { display:flex; justify-content:space-between; gap:8px; font-size:12px; line-height:1.25; }
+          .kv .k { color:#444; }
+          .kv .v { color:#111; }
+          .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+          .chip { font-size:10px; padding:2px 8px; border-radius:999px; background:var(--soft); border:1px solid #e7ebff; color:#333; }
           table { width:100%; border-collapse: collapse; font-size:12px; }
-          th, td { border: 1px solid var(--line); padding:5px 6px; text-align:left; }
+          th, td { border: 1px solid var(--line); padding:6px 7px; text-align:left; }
           th { background:#f8f8ff; }
-          .two-col { display:grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
-          .chart { width:100%; height:260px; margin-top:6px; border:1px solid #eee; }
-          .footer { text-align:center; font-size:10px; color:#777; margin-top:8px; }
+          .chart { width:100%; height:280px; margin-top:6px; border:1px solid #eee; border-radius:8px; }
           .badge { display:inline-block; padding:1px 7px; border-radius:10px; color:#fff; font-size:10px; }
           .good { background:#198754; }
           .bad { background:#dc3545; }
-          .note { font-size:10px; color:var(--muted); }
+          .note { font-size:10px; color:var(--muted); margin-top:6px; }
           /* Axes labels for inline SVG */
           .axis-label {
             font-size: 10px;
@@ -1751,64 +1755,64 @@
       const svg = buildSimplePressureSvg(distances, pressures, state.minSuction);
 
       const outletMet = state.results.finalPressure >= state.reqOutlet;
+      const runsLabel = state.hoseRuns ? (state.hoseRuns === 2 ? 'Dual (parallel)' : 'Single') : 'Single';
       return `
         <!doctype html>
         <html>
           <head><meta charset="utf-8">${styles}<title>Layflat Line Report</title></head>
           <body>
-            <div class="hdr">
-              <div class="title">Line Profile Report</div>
-              <div class="subtitle">Generated ${dateStr}</div>
-            </div>
+            <div class="wrap">
+              <div class="hdr">
+                <div class="title">Line Profile Report</div>
+                <div class="subtitle">Generated ${dateStr}</div>
+              </div>
 
-            <div class="two-col">
-              <div>
-                <div class="section-h">Inputs</div>
-                <div class="grid">
-                  <div class="kv"><div class="k">Desired Rate</div><div class="v">${fmt(state.flowBpm,0)} BPM</div></div>
+              <div class="card" style="margin-bottom:10px;">
+                <div class="section-h">Manual Mode Summary</div>
+                <div class="stack">
                   <div class="kv"><div class="k">Distance</div><div class="v">${fmt(totalMi,2)} miles</div></div>
+                  <div class="kv"><div class="k">Desired Rate</div><div class="v">${fmt(state.flowBpm,0)} BPM</div></div>
                   <div class="kv"><div class="k">Hose Diameter</div><div class="v">${fmt(state.hoseIn,0)} in</div></div>
-                  <div class="kv"><div class="k">Hose Runs</div><div class="v">${state.hoseRuns ? (state.hoseRuns === 2 ? 'Dual (parallel)' : 'Single') : 'Single'}</div></div>
+                  <div class="kv"><div class="k">Hose Runs</div><div class="v">${runsLabel}</div></div>
                   <div class="kv"><div class="k">Friction Loss</div><div class="v">${fmt(usedLoss,4)} PSI/100 ft</div></div>
                   <div class="kv"><div class="k">Min Inlet (Suction)</div><div class="v">${fmt(state.minSuction,1)} PSI</div></div>
                   <div class="kv"><div class="k">Desired Min Outlet</div><div class="v">${fmt(state.reqOutlet,1)} PSI</div></div>
                   <div class="kv"><div class="k">Max Hose PSI</div><div class="v">${fmt(state.maxHose,0)} PSI</div></div>
-                  <div class="kv"><div class="k">Pump Logic</div><div class="v">${state.placementStrategy || (window.__lastPlacementStrategy||'')}</div></div>
+                  <div class="kv"><div class="k">Loss Method</div><div class="v">${state.lossMethod}</div></div>
+                  <div class="kv"><div class="k">Path Direction</div><div class="v">${state.pathDir === 'dest_to_source' ? 'Destination → Source' : 'Source → Destination'}</div></div>
                 </div>
                 ${isFinite(npshrWithMarginFt) ? `<div class="note">NPSHR baseline (min across families) ≈ ${fmt(npshrWithMarginFt,0)} ft (incl. 5 ft margin) at ${fmt(qgpm,0)} gpm</div>` : ''}
-              </div>
-              <div>
-                <div class="section-h">Source & Results</div>
-                <div class="grid">
-                  <div class="kv"><div class="k">Source Discharge</div><div class="v">${fmt(state.sourcePsi,1)} PSI</div></div>
-                  <div class="kv"><div class="k">Midline Discharge Setpoint</div><div class="v">${fmt(state.midlinePsi,1)} PSI</div></div>
-                  <div class="kv"><div class="k">Final Outlet Pressure</div><div class="v">${fmt(state.results.finalPressure,1)} PSI</div></div>
-                  <div class="kv"><div class="k">Outlet Met?</div><div class="v"><span class="badge ${outletMet?'good':'bad'}">${outletMet?'Yes':'No'}</span></div></div>
-                  <div class="kv"><div class="k">Midline Pumps Placed</div><div class="v">${(state.pumpsSummary||[]).length}</div></div>
-                  <div class="kv"><div class="k">Loss Method</div><div class="v">${state.lossMethod}</div></div>
+                <div class="chips">
+                  <span class="chip">Source Discharge: ${fmt(state.sourcePsi,1)} PSI</span>
+                  <span class="chip">Midline Setpoint: ${fmt(state.midlinePsi,1)} PSI</span>
+                  <span class="chip">Final Outlet: ${fmt(state.results.finalPressure,1)} PSI</span>
+                  <span class="chip">Outlet Met: <span class="badge ${outletMet?'good':'bad'}" style="vertical-align:middle;">${outletMet?'Yes':'No'}</span></span>
+                  <span class="chip">Manual Pumps: ${(state.pumpsSummary||[]).length}</span>
                 </div>
               </div>
+
+              <div class="card" style="margin-bottom:10px;">
+                <div class="section-h">Midline Pumps</div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th><th>Distance</th><th>Inlet PSI</th><th>Discharge PSI</th>
+                      <th>Family</th><th>RPM</th><th>Head Added</th><th>Flow</th>
+                    </tr>
+                  </thead>
+                  <tbody>${pumpRows}</tbody>
+                </table>
+              </div>
+
+              <div class="card">
+                <div class="section-h">Pressure Profile</div>
+                <div class="chart">${svg}</div>
+                ${state.results.warnings && state.results.warnings.length ? `
+                  <div class="section-h" style="margin-top:10px;">Warnings</div>
+                  <ul class="note">${state.results.warnings.map(w => `<li>${w}</li>`).join('')}</ul>
+                ` : ''}
+              </div>
             </div>
-
-            <div class="section-h">Midline Pumps</div>
-            <table>
-              <thead>
-                <tr>
-                  <th>#</th><th>Distance</th><th>Inlet PSI</th><th>Discharge PSI</th>
-                  <th>Family</th><th>RPM</th><th>Head Added</th><th>Flow</th>
-                </tr>
-              </thead>
-              <tbody>${pumpRows}</tbody>
-            </table>
-
-            <div class="section-h">Pressure Profile</div>
-            <div class="chart">${svg}</div>
-
-            ${state.results.warnings && state.results.warnings.length ? `
-              <div class="section-h">Warnings</div>
-              <ul>${state.results.warnings.map(w => `<li>${w}</li>`).join('')}</ul>
-            ` : ''}
-
           </body>
         </html>
       `;
