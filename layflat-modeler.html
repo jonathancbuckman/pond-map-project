@@ -278,9 +278,9 @@
             <option value="fixed_setpoint" selected>Fixed Setpoint</option>
             <option value="curve_auto">Pump Curve (Auto-pick family)</option>
             <option value="curve_8hnth">Pump Curve (Cornell 8HNTH)</option>
-            <option value="curve_8nht4va">Pump Curve (Cornell 8NHT4VA)</option>
+            <option value="curve_8nhta">Pump Curve (Cornell 8NHTA)</option>
           </select>
-          <div class="inline-help">Choose fixed setpoint or curve-driven. Auto-pick considers 8HNTH (1200/1400/1600/1800 rpm) and 8NHT4VA (800/1000/1200/1400/1600/1770 rpm) and selects the lowest RPM that meets head without exceeding Max Hose PSI.</div>
+          <div class="inline-help">Choose fixed setpoint or curve-driven. Auto-pick considers 8HNTH (1200/1400/1600/1800 rpm) and 8NHTA (800/1000/1200/1400/1600/1770 rpm) and selects the lowest RPM that meets head without exceeding Max Hose PSI.</div>
         </div>
       </div>
 
@@ -1201,8 +1201,8 @@
       };
     })();
 
-    // Lower-capacity family: Cornell 8NHT4VA (from second chart)
-    const PUMP_8NHT4VA = (() => {
+    // Lower-capacity family: Cornell 8NHTA (from second chart)
+    const PUMP_8NHTA = (() => {
       const RPMS = [800,1000,1200,1400,1600,1770];
       // Coarse anchors digitized from the provided chart (Q gpm -> Head ft)
       const H_pts = {
@@ -1235,7 +1235,7 @@
     // policy: 'min' (lowest RPM meeting need), 'max' (highest RPM under max hose PSI), default 'max' for auto-pick.
     function computePumpDischargeByCurve({ inletPsi, maxHosePsi, flowBpm, psiLossPerFt, upcomingElevFt, upcomingDistFt, family='8HNTH', policy='max' }) {
       const Qgpm = bpmToGpm(flowBpm);
-      const fam = family === '8NHT4VA' ? PUMP_8NHT4VA : PUMP_8HNTH;
+      const fam = family === '8NHTA' ? PUMP_8NHTA : PUMP_8HNTH;
       const { minQ, maxQ } = fam.domain();
       const Qc = Math.max(minQ, Math.min(maxQ, Qgpm));
 
@@ -1610,10 +1610,10 @@
       const qgpm = bpmToGpm(state.flowBpm || 0);
       const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
       const q8h = clamp(qgpm, (PUMP_8HNTH?.domain().minQ)||0, (PUMP_8HNTH?.domain().maxQ)||qgpm);
-      const q8v = clamp(qgpm, (PUMP_8NHT4VA?.domain().minQ)||0, (PUMP_8NHT4VA?.domain().maxQ)||qgpm);
+      const q8v = clamp(qgpm, (PUMP_8NHTA?.domain().minQ)||0, (PUMP_8NHTA?.domain().maxQ)||qgpm);
       const npshrMinFt = Math.min(
         PUMP_8HNTH ? PUMP_8HNTH.npshrAt(q8h) : Infinity,
-        PUMP_8NHT4VA ? PUMP_8NHT4VA.npshrAt(q8v) : Infinity
+        PUMP_8NHTA ? PUMP_8NHTA.npshrAt(q8v) : Infinity
       );
       const npshMarginFt = 5;
       const npshrWithMarginFt = isFinite(npshrMinFt) ? (npshrMinFt + npshMarginFt) : undefined;
