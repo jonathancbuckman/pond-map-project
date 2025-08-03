@@ -274,12 +274,10 @@
 
         <div class="field">
           <label for="placement-strategy">Pump Placement Strategy</label>
-          <select id="placement-strategy">
-            <option value="reactive">Reactive</option>
-            <option value="optimized">Optimized Look-ahead</option>
-            <option value="minimized" selected>Minimum Pump Count (default)</option>
+          <select id="placement-strategy" disabled>
+            <option value="minimized" selected>Minimum Pump Count</option>
           </select>
-          <div class="inline-help">Choose algorithm for automatic midline pump placement.</div>
+          <div class="inline-help">Algorithm fixed to "Minimum Pump Count" for consistent, predictable results.</div>
         </div>
       </div>
 
@@ -869,27 +867,32 @@
     // Build pressure profile including placed pumps (clear boost visualization)
     // Returns an object with distances and pressures arrays aligned 1:1 for Chart.js
     function buildProfileWithPumps(distFt, elevFt, sourcePsi, pumps, psiLossPer100) {
+      // Build pressure profile and clamp instantaneous pressures to be no lower than the configured minimum suction.
+      // This keeps the plotted inlet at each pump consistent with displayed inlet PSI and avoids sub-zero dips.
       const lossPerFt = psiLossPer100 / 100.0;
       const outDistances = [];
       const outPressures = [];
       let p = sourcePsi;
       let pumpIdx = 0;
 
+      // Helper: clamp for plotting (do not affect simulation logic outside this function)
+      const minPlotPsi = Number(document.getElementById('min-suction-psi')?.value) || 0;
+
       // Seed first point
       outDistances.push(distFt[0]);
-      outPressures.push(p);
+      outPressures.push(Math.max(p, minPlotPsi));
 
       for (let i = 1; i < distFt.length; i++) {
         // Check if a pump exists exactly at index i
         if (pumpIdx < pumps.length && pumps[pumpIdx].index === i) {
           // Add point just before pump (current pressure at this location)
           outDistances.push(distFt[i]);
-          outPressures.push(p);
+          outPressures.push(Math.max(p, minPlotPsi));
           
           // Add point just after pump (boosted pressure at same location)
           p = pumps[pumpIdx].discharge;
           outDistances.push(distFt[i]);
-          outPressures.push(p);
+          outPressures.push(Math.max(p, minPlotPsi));
           pumpIdx++;
         }
 
@@ -902,7 +905,7 @@
 
         // Add end point of segment
         outDistances.push(distFt[i]);
-        outPressures.push(p);
+        outPressures.push(Math.max(p, minPlotPsi));
       }
       
       return { distances: outDistances, pressures: outPressures };
@@ -1221,7 +1224,7 @@
         reqOutlet: Number(elReqOutlet.value),
         lossMethod: currentLossMethod(),
         manualPsi100: Number(elManualPsi100.value),
-        placementStrategy: elPlacementStrategy?.value || 'reactive',
+        placementStrategy: 'minimized',
         pathDir: currentPathDir(),
         results: {
           totalFt,
@@ -1316,15 +1319,8 @@
       const distFt = cumulativeDistancesFt(dsLatLngs);
       const totalFt = distFt[distFt.length - 1] || 0;
 
-      // Auto midline pump placement (strategy switch)
-      let auto;
-      if (placementStrategy === 'optimized') {
-        auto = placeMidlinePumpsOptimized(distFt, elevationsFt, sourcePsi, midlinePsi, minSuction, usedPsiLossPer100);
-      } else if (placementStrategy === 'minimized') {
-        auto = placeMidlinePumpsMinimized(distFt, elevationsFt, sourcePsi, midlinePsi, minSuction, usedPsiLossPer100);
-      } else {
-        auto = placeMidlinePumps(distFt, elevationsFt, sourcePsi, midlinePsi, minSuction, usedPsiLossPer100);
-      }
+      // Auto midline pump placement (single algorithm)
+      const auto = placeMidlinePumpsMinimized(distFt, elevationsFt, sourcePsi, midlinePsi, minSuction, usedPsiLossPer100);
 
       // Path status line
       updatePathStatus(dsLatLngs, distFt[distFt.length - 1] || 0);
