@@ -735,84 +735,112 @@
 
     // Alternative approach: Minimum pump count optimization
     function placeMidlinePumpsMinimized(distFt, elevFt, sourcePsi, midlinePsi, minSuctionPsi, psiLossPer100) {
-      const lossPerFt = psiLossPer100 / 100.0;
+      // Goal: minimize count while avoiding back-to-back placements and unnatural boosts.
+      // Changes:
+      // - Fixed discharge = midlinePsi (no 1.1x bump).
+      // - Strict spacing between pumps.
+      // - Place at the local pressure minimum just before the first failure point reachable from current pump.
+      // - If spacing would be violated, advance simulation without placing.
 
-      function canReachEnd(startIdx, startPressure, targetIdx) {
-        let pressure = startPressure;
-        for (let i = startIdx + 1; i <= targetIdx; i++) {
+      const lossPerFt = psiLossPer100 / 100.0;
+      const pumps = [];
+
+      const MIN_PUMP_SPACING_FT = 2000; // avoid near-adjacent pumps
+      const MAX_PUMPS_SAFETY = Math.max(3, Math.ceil((distFt[distFt.length - 1] || 0) / 10000)); // conservative cap
+
+      function simulatePressure(fromIdx, fromPressure, toIdx) {
+        let p = fromPressure;
+        for (let i = fromIdx + 1; i <= toIdx; i++) {
           const segLen = distFt[i] - distFt[i - 1];
           const dhFt = elevFt[i] - elevFt[i - 1];
           const elevDeltaPsi = -dhFt * PSI_PER_FOOT_WATER;
           const frictionPsi = lossPerFt * segLen;
-          pressure = pressure + elevDeltaPsi - frictionPsi;
-          if (pressure < minSuctionPsi) {
-            return { canReach: false, failIndex: i, pressure: pressure };
-          }
+          p = p + elevDeltaPsi - frictionPsi;
         }
-        return { canReach: true, finalPressure: pressure };
+        return p;
       }
 
-      const professionalDischarge = Math.min(120, midlinePsi * 1.1);
+      function firstFailIndex(startIdx, startPressure) {
+        let p = startPressure;
+        for (let i = startIdx + 1; i < distFt.length; i++) {
+          const segLen = distFt[i] - distFt[i - 1];
+          const dhFt = elevFt[i] - elevFt[i - 1];
+          const elevDeltaPsi = -dhFt * PSI_PER_FOOT_WATER;
+          const frictionPsi = lossPerFt * segLen;
+          p = p + elevDeltaPsi - frictionPsi;
+          if (p < minSuctionPsi) {
+            return i;
+          }
+        }
+        return -1;
+      }
 
-      const pumps = [];
+      function valleyIndexNear(centerIdx, startIdx, startPressure) {
+        // Search backward a bit from fail for a valley where pressure is minimized
+        const back = 16, forward = 3;
+        const lo = Math.max(startIdx + 1, centerIdx - back);
+        const hi = Math.min(distFt.length - 1, centerIdx + forward);
+        let bestI = lo;
+        let bestP = +Infinity;
+        for (let i = lo; i <= hi; i++) {
+          const pAtI = simulatePressure(startIdx, startPressure, i);
+          if (pAtI < bestP) { bestP = pAtI; bestI = i; }
+        }
+        return { idx: bestI, p: bestP };
+      }
+
       let currentIdx = 0;
       let currentPressure = sourcePsi;
-
       let guard = 0, GUARD_MAX = distFt.length * 3;
 
       while (currentIdx < distFt.length - 1 && guard++ < GUARD_MAX) {
-        const result = canReachEnd(currentIdx, currentPressure, distFt.length - 1);
+        if (pumps.length >= MAX_PUMPS_SAFETY) break;
 
-        if (result.canReach) {
-          return { pumps, finalPressure: result.finalPressure };
+        // Try to reach end from current state
+        const canReachEndP = simulatePressure(currentIdx, currentPressure, distFt.length - 1);
+        if (canReachEndP >= minSuctionPsi) {
+          // done; no more pumps needed
+          currentPressure = canReachEndP;
+          break;
         }
 
-        let pumpIndex = Math.max(1, result.failIndex - 1);
+        const failIdx = firstFailIndex(currentIdx, currentPressure);
+        if (failIdx < 0) {
+          // safety; should not happen if above didn't return
+          break;
+        }
 
-        const searchStart = Math.max(currentIdx + 1, pumpIndex - 10);
-        const searchEnd = Math.min(distFt.length - 1, pumpIndex + 5);
+        // Pick a placement near the valley before failure
+        const valley = valleyIndexNear(failIdx, currentIdx, currentPressure);
+        let placeIdx = Math.max(currentIdx + 1, valley.idx);
 
-        let bestPumpIndex = pumpIndex;
-        let bestScore = -Infinity;
-
-        for (let testIdx = searchStart; testIdx <= searchEnd; testIdx++) {
-          const testResult = canReachEnd(currentIdx, currentPressure, testIdx);
-          if (testResult.canReach && testResult.finalPressure >= minSuctionPsi) {
-            const distanceCovered = distFt[testIdx] - distFt[currentIdx];
-            const pressureMargin = testResult.finalPressure - minSuctionPsi;
-            const score = distanceCovered + pressureMargin * 100;
-            if (score > bestScore) { bestScore = score; bestPumpIndex = testIdx; }
+        // Enforce spacing
+        if (pumps.length > 0) {
+          const last = pumps[pumps.length - 1];
+          if ((distFt[placeIdx] - last.distanceFt) < MIN_PUMP_SPACING_FT) {
+            // spacing not met, advance simulation to placeIdx and continue
+            currentPressure = simulatePressure(currentIdx, currentPressure, placeIdx);
+            currentIdx = placeIdx;
+            continue;
           }
         }
 
-        let pressureAtPump = currentPressure;
-        for (let i = currentIdx + 1; i <= bestPumpIndex; i++) {
-          const segLen = distFt[i] - distFt[i - 1];
-          const dhFt = elevFt[i] - elevFt[i - 1];
-          const elevDeltaPsi = -dhFt * PSI_PER_FOOT_WATER;
-          const frictionPsi = lossPerFt * segLen;
-          pressureAtPump = pressureAtPump + elevDeltaPsi - frictionPsi;
-        }
-
+        // Compute inlet at placement and place pump with fixed discharge
+        const inletP = simulatePressure(currentIdx, currentPressure, placeIdx);
         pumps.push({
-          index: bestPumpIndex,
-          distanceFt: distFt[bestPumpIndex],
-          pressureBefore: pressureAtPump,
-          discharge: professionalDischarge
+          index: placeIdx,
+          distanceFt: distFt[placeIdx],
+          pressureBefore: inletP,
+          discharge: midlinePsi
         });
 
-        currentPressure = professionalDischarge;
-        currentIdx = bestPumpIndex;
+        // reset state to right after pump
+        currentIdx = placeIdx;
+        currentPressure = midlinePsi;
       }
 
-      let finalPressure = currentPressure;
-      for (let i = currentIdx + 1; i < distFt.length; i++) {
-        const segLen = distFt[i] - distFt[i - 1];
-        const dhFt = elevFt[i] - elevFt[i - 1];
-        const elevDeltaPsi = -dhFt * PSI_PER_FOOT_WATER;
-        const frictionPsi = lossPerFt * segLen;
-        finalPressure = finalPressure + elevDeltaPsi - frictionPsi;
-      }
+      // Finish to end for final pressure
+      const finalPressure = simulatePressure(currentIdx, currentPressure, distFt.length - 1);
 
       return { pumps, finalPressure };
     }
