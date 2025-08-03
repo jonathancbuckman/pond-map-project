@@ -626,29 +626,39 @@
       return { pumps, finalPressure: currentPressure };
     }
 
-    // Improved automatic midline pump placement algorithm (optimization-based)
+    // Improved automatic midline pump placement algorithm (optimization-based, with anti-clustering)
     function placeMidlinePumpsOptimized(distFt, elevFt, sourcePsi, midlinePsi, minSuctionPsi, psiLossPer100) {
       const lossPerFt = psiLossPer100 / 100.0;
       const pumps = [];
+      const MIN_PUMP_SPACING_FT = 1200; // enforce minimum spacing to avoid clusters
+      const MAX_PUMPS_SAFETY = Math.max(3, Math.ceil((distFt[distFt.length-1] || 0) / 6000)); // ~1 per 6k ft cap
+      const MAX_DISCHARGE = 120;
 
+      // Dynamic discharge considering both upcoming climbs and nearby valleys
       function calculateOptimalDischarge(startIdx, distFt, elevFt, midlinePsi) {
         const lookAheadDist = 15840; // 3 miles
         const currentDist = distFt[startIdx];
         let maxElevationAhead = elevFt[startIdx];
+        let minElevationAhead = elevFt[startIdx];
 
         for (let i = startIdx; i < distFt.length && (distFt[i] - currentDist) < lookAheadDist; i++) {
           maxElevationAhead = Math.max(maxElevationAhead, elevFt[i]);
+          minElevationAhead = Math.min(minElevationAhead, elevFt[i]);
         }
 
-        const elevationBoostNeeded = (maxElevationAhead - elevFt[startIdx]) * PSI_PER_FOOT_WATER;
+        const uphillBoost = Math.max(0, (maxElevationAhead - elevFt[startIdx]) * PSI_PER_FOOT_WATER);
+        const downhillRelief = Math.max(0, (elevFt[startIdx] - minElevationAhead) * PSI_PER_FOOT_WATER);
+        const elevationBoostNeeded = Math.max(0, uphillBoost - 0.5 * downhillRelief);
+
         const baseDischarge = midlinePsi;
-        const dynamicDischarge = Math.max(baseDischarge, baseDischarge + elevationBoostNeeded + 10);
-        return Math.min(dynamicDischarge, 120); // cap
+        const dynamicDischarge = Math.max(baseDischarge, baseDischarge + elevationBoostNeeded + 8);
+        return Math.min(dynamicDischarge, MAX_DISCHARGE);
       }
 
+      // Longer-horizon placement search with spacing-aware scoring
       function findOptimalPumpDistance(startIdx, startPressure, distFt, elevFt, minSuctionPsi, lossPerFt) {
-        const EXTENDED_HORIZON = Math.min(200, distFt.length - startIdx - 1);
-        const COMFORT_MARGIN = 5;
+        const EXTENDED_HORIZON = Math.min(300, distFt.length - startIdx - 1);
+        const COMFORT_MARGIN = 6;
 
         let pressure = startPressure;
         let bestPlacement = null;
@@ -666,9 +676,15 @@
           if (pressure < lowestPressure) { lowestPressure = pressure; lowestPressureIdx = i; }
 
           if (pressure < (minSuctionPsi + COMFORT_MARGIN)) {
-            const slopeHere = i > 0 ? (elevFt[i] - elevFt[i-1]) / (distFt[i] - distFt[i-1]) : 0;
-            const slopeAhead = i < elevFt.length - 1 ? (elevFt[i+1] - elevFt[i]) / (distFt[i+1] - distFt[i]) : 0;
-            const locationScore = -Math.abs(slopeHere) - Math.max(0, slopeAhead * 100);
+            const slopeHere = i > 0 ? (elevFt[i] - elevFt[i-1]) / Math.max(1,(distFt[i] - distFt[i-1])) : 0;
+            const slopeAhead = i < elevFt.length - 1 ? (elevFt[i+1] - elevFt[i]) / Math.max(1,(distFt[i+1] - distFt[i])) : 0;
+
+            // spacing penalty if too close to the last selected pump
+            const spacingPenalty =
+              pumps.length ? Math.max(0, (MIN_PUMP_SPACING_FT - (distFt[i] - pumps[pumps.length-1].distanceFt))) / MIN_PUMP_SPACING_FT : 0;
+
+            // prefer bottoms/flat, penalize upcoming uphill and spacing violation
+            const locationScore = -Math.abs(slopeHere) - Math.max(0, slopeAhead * 120) - spacingPenalty * 2;
 
             if (!bestPlacement || locationScore > bestPlacement.score) {
               bestPlacement = { index: i, pressure: pressure, score: locationScore, distance: distFt[i] };
@@ -684,20 +700,35 @@
       let currentPressure = sourcePsi;
       let currentIdx = 0;
 
-      // safety to avoid infinite loops
       let guard = 0, GUARD_MAX = distFt.length * 3;
 
       while (currentIdx < distFt.length - 1 && guard++ < GUARD_MAX) {
+        if (pumps.length >= MAX_PUMPS_SAFETY) break;
+
         const placement = findOptimalPumpDistance(currentIdx, currentPressure, distFt, elevFt, minSuctionPsi, lossPerFt);
 
-        if (placement.index <= currentIdx + 1) {
-          const discharge = calculateOptimalDischarge(Math.min(currentIdx + 1, distFt.length - 1), distFt, elevFt, midlinePsi);
-          pumps.push({ index: Math.min(currentIdx + 1, distFt.length - 1), distanceFt: distFt[Math.min(currentIdx + 1, distFt.length - 1)], pressureBefore: currentPressure, discharge });
-          currentPressure = discharge;
-          currentIdx = Math.min(currentIdx + 1, distFt.length - 1);
-        } else if (placement.pressure < minSuctionPsi + 2) {
-          const discharge = calculateOptimalDischarge(placement.index, distFt, elevFt, midlinePsi);
+        // If placement ends up too close to the last pump, advance without adding a new pump to avoid clustering
+        if (pumps.length > 0) {
+          const last = pumps[pumps.length - 1];
+          const placementDist = placement.distance ?? distFt[placement.index];
+          if ((placementDist - last.distanceFt) < MIN_PUMP_SPACING_FT) {
+            currentIdx = Math.max(placement.index, currentIdx + 1);
+            currentPressure = placement.pressure;
+            continue;
+          }
+        }
 
+        if (placement.index <= currentIdx + 1) {
+          const idx = Math.min(currentIdx + 1, distFt.length - 1);
+          const discharge = calculateOptimalDischarge(idx, distFt, elevFt, midlinePsi);
+          pumps.push({ index: idx, distanceFt: distFt[idx], pressureBefore: currentPressure, discharge });
+          currentPressure = discharge;
+          currentIdx = idx;
+          continue;
+        }
+
+        if (placement.pressure < minSuctionPsi + 2) {
+          // compute pressure at proposed location
           let pressureAtPump = currentPressure;
           for (let i = currentIdx + 1; i <= placement.index; i++) {
             const segLen = distFt[i] - distFt[i - 1];
@@ -707,9 +738,20 @@
             pressureAtPump = pressureAtPump + elevDeltaPsi - frictionPsi;
           }
 
-          pumps.push({ index: placement.index, distanceFt: placement.distance, pressureBefore: pressureAtPump, discharge });
+          // adjust placement forward if spacing would be violated
+          let placeIdx = placement.index;
+          if (pumps.length > 0) {
+            const last = pumps[pumps.length - 1];
+            while (placeIdx < distFt.length - 1 && (distFt[placeIdx] - last.distanceFt) < MIN_PUMP_SPACING_FT) {
+              placeIdx++;
+            }
+          }
+
+          const discharge = calculateOptimalDischarge(placeIdx, distFt, elevFt, midlinePsi);
+
+          pumps.push({ index: placeIdx, distanceFt: distFt[placeIdx], pressureBefore: pressureAtPump, discharge });
           currentPressure = discharge;
-          currentIdx = placement.index;
+          currentIdx = placeIdx;
         } else {
           currentIdx = placement.index;
           currentPressure = placement.pressure;
