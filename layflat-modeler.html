@@ -1798,12 +1798,11 @@
       const width = 900, height = 300, padL = 60, padR = 10, padT = 10, padB = 38;
       const minX = distances[0], maxX = distances[distances.length-1];
 
-      // Include both min inlet reference (optional) and a solid red Max Hose line
+      // Only include a solid red Max Hose line; remove the yellow min-suction reference line
       const maxHosePsi = Number(window.__modelerLastRun?.maxHose ?? 0);
 
-      // Determine Y extents considering pressures, min line, and max hose reference
+      // Determine Y extents considering pressures and max hose reference (omit minLine entirely)
       const valuesForY = [...pressures];
-      if (isFinite(minLine)) valuesForY.push(minLine);
       if (isFinite(maxHosePsi)) valuesForY.push(maxHosePsi);
       let minY = Math.min(...valuesForY);
       let maxY = Math.max(...valuesForY);
@@ -1815,16 +1814,15 @@
       // Build polyline points
       const pts = distances.map((d,i) => `${sx(d)},${sy(pressures[i])}`).join(' ');
 
-      // Min inlet (dashed amber), optional
-      const minYLine = isFinite(minLine) ? `
-        <line x1="${sx(minX)}" y1="${sy(minLine)}" x2="${sx(maxX)}" y2="${sy(minLine)}"
-              stroke="#ffc107" stroke-width="2" stroke-dasharray="6,6" />
-      ` : '';
-
-      // Max hose (solid red)
+      // Max hose (solid red) + label
       const maxHoseLine = isFinite(maxHosePsi) && maxHosePsi > 0 ? `
         <line x1="${sx(minX)}" y1="${sy(maxHosePsi)}" x2="${sx(maxX)}" y2="${sy(maxHosePsi)}"
               stroke="#dc3545" stroke-width="2" />
+        <text x="${sx(maxX) - 8}" y="${sy(maxHosePsi) - 6}" text-anchor="end"
+              font-size="12" font-weight="700" fill="#dc3545"
+              font-family="'ISOCPEUR', Arial, sans-serif">
+          User-defined Max Pressure (PSI)
+        </text>
       ` : '';
 
       return `
@@ -1837,7 +1835,6 @@
           <text class="axis-label" x="${(padL + (width - padR)) / 2}" y="${height - 4}" text-anchor="middle">Distance (ft)</text>
           <text class="axis-label" transform="translate(16 ${(padT + (height - padB)) / 2}) rotate(-90)" text-anchor="middle">Pressure (PSI)</text>
           <!-- Data -->
-          ${minYLine}
           ${maxHoseLine}
           <polyline fill="none" stroke="#0b5fff" stroke-width="2" points="${pts}" />
         </svg>
