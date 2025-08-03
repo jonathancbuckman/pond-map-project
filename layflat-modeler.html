@@ -275,12 +275,13 @@
         <div class="field">
           <label for="placement-strategy">Pump Logic</label>
           <select id="placement-strategy">
-            <option value="fixed_setpoint" selected>Fixed Setpoint</option>
+            <option value="fixed_setpoint" selected>Fixed Setpoint (Auto)</option>
             <option value="curve_auto">Pump Curve (Auto-pick family)</option>
             <option value="curve_8hnth">Pump Curve (Cornell 8HNTH)</option>
             <option value="curve_8nhta">Pump Curve (Cornell 8NHTA)</option>
+            <option value="manual">Manual Placement</option>
           </select>
-          <div class="inline-help">Choose fixed setpoint or curve-driven. Auto-pick considers 8HNTH (1200/1400/1600/1800 rpm) and 8NHTA (800/1000/1200/1400/1600/1770 rpm) and selects the lowest RPM that meets head without exceeding Max Hose PSI.</div>
+          <div class="inline-help">Choose automatic placement or the new Manual mode to place pumps by clicking along the map polyline. In Manual mode, drag markers to move; click a marker to delete; edit discharges in the panel.</div>
         </div>
       </div>
 
@@ -318,6 +319,13 @@
       </p>
       <div id="modeler-map"></div>
       <div class="inline-help" id="map-hint" style="margin-top:6px;">Path and pump markers will display here after KML processing.</div>
+      <div id="manual-panel" class="section-card" style="margin-top:10px; display:none;">
+        <h3 style="margin-top:0;">Manual Pumps</h3>
+        <div class="inline-help" style="margin-top:-6px;">
+          Click on the red polyline to add a booster. Drag markers to move along the line. Click a marker to delete. Edit discharge setpoints below.
+        </div>
+        <div id="manual-pump-list" style="margin-top:8px;"></div>
+      </div>
     </section>
 
     <section class="section-card" id="results-section" style="display:none;">
@@ -949,6 +957,14 @@
     let pathLayer = null;
     let pumpLayer = null;
 
+    // Manual placement state
+    let manualMode = false;
+    let manualLatLngs = [];  // active path
+    let manualDistFt = [];   // cumulative distances for path
+    let manualElevFt = [];   // elevation samples for path
+    // pumps: { index: i, distanceFt, discharge, pressureBefore (computed), marker }
+    let manualPumps = [];
+
     function currentLossMethod() {
       for (const r of lossRadios) if (r.checked) return r.value;
       return 'lookup';
@@ -1038,6 +1054,151 @@
       el.textContent = `Loaded ${latlngs.length} points • Total distance ~ ${totalFt.toFixed(0)} ft`;
     }
 
+    function nearestPathIndex(latlngs, latlng) {
+      // simple nearest vertex search
+      let best = 0, bestD = Infinity;
+      for (let i=0;i<latlngs.length;i++){
+        const dLat = latlngs[i][0] - latlng.lat;
+        const dLng = latlngs[i][1] - latlng.lng;
+        const d2 = dLat*dLat + dLng*dLng;
+        if (d2 < bestD) { bestD = d2; best = i; }
+      }
+      return best;
+    }
+
+    function rebuildManualList() {
+      const list = document.getElementById('manual-pump-list');
+      if (!list) return;
+      if (!manualPumps.length) { list.innerHTML = '<div class="inline-help">No manual pumps yet.</div>'; return; }
+      list.innerHTML = '';
+      manualPumps
+        .sort((a,b) => a.distanceFt - b.distanceFt)
+        .forEach((p, idx) => {
+          const row = document.createElement('div');
+          row.style.display = 'grid';
+          row.style.gridTemplateColumns = '1fr 1fr 1fr 1fr';
+          row.style.gap = '8px';
+          row.style.alignItems = 'center';
+          row.style.marginBottom = '6px';
+          row.innerHTML = `
+            <div>#${idx+1} @ ${(p.distanceFt/5280).toFixed(2)} mi</div>
+            <div>Inlet: ${(p.pressureBefore ?? 0).toFixed(1)} PSI</div>
+            <div>
+              <label style="font-size:12px;color:#666;">Discharge PSI</label>
+              <input type="number" step="0.1" value="${Number(p.discharge||elMidlinePsi.value)}" style="width:100%;">
+            </div>
+            <button class="btn secondary" data-del="${idx}">Delete</button>
+          `;
+          // wire discharge edit
+          const inp = row.querySelector('input');
+          inp.addEventListener('input', () => { p.discharge = Number(inp.value||0); updateManualProfileAndUI(); });
+          // wire delete
+          const del = row.querySelector('button[data-del]');
+          del.addEventListener('click', () => {
+            // remove marker from map
+            try { pumpLayer.removeLayer(p.marker); } catch {}
+            manualPumps.splice(idx,1);
+            updateManualProfileAndUI();
+          });
+          list.appendChild(row);
+        });
+    }
+
+    function computeProfileWithGivenPumps(distFt, elevFt, sourcePsi, pumps, psiLossPer100) {
+      // identical to buildProfileWithPumps but uses provided pumps array; returns {distances, pressures}
+      const lossPerFt = psiLossPer100 / 100.0;
+      const outDistances = [];
+      const outPressures = [];
+      let p = sourcePsi;
+      let pumpIdx = 0;
+      outDistances.push(distFt[0]); outPressures.push(p);
+      for (let i = 1; i < distFt.length; i++) {
+        if (pumpIdx < pumps.length && pumps[pumpIdx].index === i) {
+          outDistances.push(distFt[i]); outPressures.push(p);
+          p = pumps[pumpIdx].discharge;
+          outDistances.push(distFt[i]); outPressures.push(p);
+          pumpIdx++;
+        }
+        const segLen = distFt[i] - distFt[i-1];
+        const dhFt = elevFt[i] - elevFt[i-1];
+        const elevDeltaPsi = -dhFt * PSI_PER_FOOT_WATER;
+        const frictionPsi = lossPerFt * segLen;
+        p = p + elevDeltaPsi - frictionPsi;
+        outDistances.push(distFt[i]); outPressures.push(p);
+      }
+      return { distances: outDistances, pressures: outPressures };
+    }
+
+    function recomputeManualInlets() {
+      // recompute inlet pressures at pump indices based on current manualPumps and current hydraulics
+      const sourcePsi = Number(elSourcePsi.value);
+      const usedPsiLossPer100 = window.__lastUsedPsiLossPer100 || 0;
+      const lossPerFt = usedPsiLossPer100 / 100.0;
+
+      let p = sourcePsi;
+      let nextPumpIdx = 0;
+      for (let i=1;i<manualDistFt.length;i++){
+        if (nextPumpIdx < manualPumps.length && manualPumps[nextPumpIdx].index === i){
+          // inlet at this node is current p
+          manualPumps[nextPumpIdx].pressureBefore = p; // raw, no clamping
+          // jump to discharge
+          p = Number(manualPumps[nextPumpIdx].discharge || elMidlinePsi.value);
+          nextPumpIdx++;
+        }
+        const segLen = manualDistFt[i] - manualDistFt[i-1];
+        const dhFt = manualElevFt[i] - manualElevFt[i-1];
+        const elevDeltaPsi = -dhFt * PSI_PER_FOOT_WATER;
+        const frictionPsi = lossPerFt * segLen;
+        p = p + elevDeltaPsi - frictionPsi;
+      }
+    }
+
+    function updateManualProfileAndUI() {
+      // recompute inlets, redraw markers list, refresh chart/results
+      recomputeManualInlets();
+      rebuildManualList();
+
+      // Build profile from manual pumps
+      const prof = computeProfileWithGivenPumps(manualDistFt, manualElevFt, Number(elSourcePsi.value), manualPumps, window.__lastUsedPsiLossPer100 || 0);
+      const distancesForChart = prof.distances;
+      const pressures = prof.pressures;
+
+      // Update map markers popups to show raw inlet
+      pumpLayer.clearLayers();
+      manualPumps.forEach((p, idx) => {
+        const [lat, lon] = manualLatLngs[p.index];
+        const m = L.marker([lat, lon], { draggable: true })
+          .bindPopup(`<b>Manual Pump #${idx+1}</b><br>Distance: ${p.distanceFt.toFixed(0)} ft<br>Inlet: ${(p.pressureBefore??0).toFixed(1)} PSI<br>Discharge: ${Number(p.discharge||0).toFixed(1)} PSI`);
+        m.on('dragend', (ev) => {
+          const ll = ev.target.getLatLng();
+          const i = nearestPathIndex(manualLatLngs, ll);
+          p.index = i;
+          p.distanceFt = manualDistFt[i];
+          p.marker.setLatLng([manualLatLngs[i][0], manualLatLngs[i][1]]);
+          updateManualProfileAndUI();
+        });
+        m.on('click', () => { // delete on click
+          try { pumpLayer.removeLayer(m); } catch {}
+          const k = manualPumps.indexOf(p);
+          if (k>=0) { manualPumps.splice(k,1); updateManualProfileAndUI(); }
+        });
+        p.marker = m;
+        pumpLayer.addLayer(m);
+      });
+
+      // Results and chart: pumpCount from manual, final outlet from profile tail
+      const finalPressure = pressures.length ? pressures[pressures.length-1] : 0;
+      renderResults(manualDistFt[manualDistFt.length-1]||0, (window.__lastUsedPsiLossPer100||0), finalPressure, Number(elReqOutlet.value), manualPumps.length, (window.__lastWarnings||[]), distancesForChart, pressures, Number(elMinSuction.value));
+
+      // Persist last run for report with manual selection
+      window.__modelerLastRun = window.__modelerLastRun || {};
+      window.__modelerLastRun.profile = { distances: distancesForChart, pressures };
+      window.__modelerLastRun.results = window.__modelerLastRun.results || {};
+      window.__modelerLastRun.results.finalPressure = finalPressure;
+      window.__lastPumps = manualPumps.map(p => ({ index:p.index, distanceFt:p.distanceFt, pressureBefore:p.pressureBefore, discharge:Number(p.discharge||0) }));
+      window.__lastPlacementStrategy = 'manual';
+    }
+
     function renderPathOnMap(latlngs, pumps) {
       const map = ensureMap();
       if (pathLayer) { map.removeLayer(pathLayer); pathLayer = null; }
@@ -1046,6 +1207,20 @@
       if (latlngs && latlngs.length > 1) {
         pathLayer = L.polyline(latlngs, { color: 'red', weight: 5 }).addTo(map);
         map.fitBounds(pathLayer.getBounds().pad(0.1));
+
+        // Manual mode click handler
+        if (manualMode) {
+          pathLayer.on('click', (ev) => {
+            const i = nearestPathIndex(latlngs, ev.latlng);
+            const distanceFt = manualDistFt[i] || 0;
+            const discharge = Number(elMidlinePsi.value);
+            const np = { index:i, distanceFt, discharge, pressureBefore: 0, marker: null };
+            manualPumps.push(np);
+            updateManualProfileAndUI();
+          });
+        } else {
+          if (pathLayer) pathLayer.off('click');
+        }
       }
       if (Array.isArray(pumps)) {
         pumps.forEach((p, idx) => {
@@ -1361,7 +1536,8 @@
           warnings: [...warnings]
         },
         profile: { distances, pressures },
-        pumpsSummary: (window.__lastPumps || [])
+        pumpsSummary: (window.__lastPumps || []),
+        placementStrategy: (window.__lastPlacementStrategy || (elPlacementStrategy?.value) || 'fixed_setpoint')
       };
     }
 
@@ -1446,9 +1622,28 @@
       const distFt = cumulativeDistancesFt(dsLatLngs);
       const totalFt = distFt[distFt.length - 1] || 0;
 
+      // Cache for manual mode recompute
+      manualLatLngs = dsLatLngs;
+      manualDistFt = distFt;
+      manualElevFt = elevationsFt;
+
+      // Determine friction loss we used (for manual recompute reuse)
+      window.__lastUsedPsiLossPer100 = usedPsiLossPer100;
+      window.__lastWarnings = warnings;
+
       // Auto midline pump placement: choose algorithm by Pump Logic
       let auto;
-      if (placementStrategy === 'curve_8hnth' || placementStrategy === 'curve_8nht4va' || placementStrategy === 'curve_auto') {
+      if (placementStrategy === 'manual') {
+        manualMode = true;
+        // ensure UI elements visible
+        document.getElementById('manual-panel').style.display = 'block';
+        // if first time entering manual on this path and there are no pumps, start with empty set (source only)
+        if (!Array.isArray(manualPumps)) manualPumps = [];
+        // render baseline map/path and any existing manual markers, then recompute profile
+        renderPathOnMap(dsLatLngs, []);
+        updateManualProfileAndUI();
+        return; // manual mode defers results build to updateManualProfileAndUI
+      } else if (placementStrategy === 'curve_8hnth' || placementStrategy === 'curve_8nht4va' || placementStrategy === 'curve_auto') {
         const lossPerFt = usedPsiLossPer100 / 100.0;
         const pumps = [];
         let i0 = 0;
@@ -1582,6 +1777,11 @@
 
       // Path status line
       updatePathStatus(dsLatLngs, distFt[distFt.length - 1] || 0);
+
+      // Hide manual panel when not in manual mode
+      const mp = document.getElementById('manual-panel');
+      if (mp) mp.style.display = (placementStrategy === 'manual') ? 'block' : 'none';
+      manualMode = (placementStrategy === 'manual');
 
       // Build final pressure profile with placed pumps
       const prof = buildProfileWithPumps(distFt, elevationsFt, sourcePsi, auto.pumps, usedPsiLossPer100);
@@ -1742,6 +1942,7 @@
 
             <div class="section-h">Pressure Profile</div>
             <div class="chart">${svg}</div>
+            <div class="note">Inlet PSI values in the Midline Pumps table are raw simulated pressures at the placement index (no clamping). Use Manual mode to move pumps if inlets are below Min Inlet.</div>
 
             ${state.results.warnings && state.results.warnings.length ? `
               <div class="section-h">Warnings</div>
