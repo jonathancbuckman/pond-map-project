@@ -308,3 +308,175 @@ html, body {
         min-width: 160px;
     }
 }
+
+/* --- WELCOME MODAL STYLES --- */
+.welcome-modal[aria-hidden="true"] {
+    display: none;
+}
+
+.welcome-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 2000; /* Above Leaflet controls */
+    display: block;
+    pointer-events: none; /* container itself doesn't capture events */
+}
+
+.welcome-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    opacity: 0;
+    transition: opacity 180ms ease-out;
+    pointer-events: auto; /* click to dismiss */
+}
+
+.welcome-dialog {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -46%); /* start slightly up for subtle motion */
+    width: min(92vw, 520px);
+    max-height: min(80vh, 520px);
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+    padding: 18px 16px 16px 16px;
+    box-sizing: border-box;
+    font-family: 'ISOCPEUR', Arial, sans-serif !important; /* enforce ISO font */
+    color: #222;
+    opacity: 0;
+    transition: opacity 180ms ease-out, transform 200ms ease-out;
+    pointer-events: auto; /* allow interaction inside */
+}
+
+.welcome-modal[aria-hidden="false"] .welcome-backdrop {
+    opacity: 1;
+}
+
+.welcome-modal[aria-hidden="false"] .welcome-dialog {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+}
+
+.welcome-dialog h2 {
+    margin: 0 28px 10px 0; /* leave space for close */
+    font-size: clamp(18px, 2.8vw, 22px);
+    line-height: 1.25;
+    color: #111;
+    font-family: 'ISOCPEUR', Arial, sans-serif !important; /* enforce ISO font */
+}
+
+.welcome-dialog p {
+    margin: 8px 0;
+    font-size: clamp(13px, 2.4vw, 15px);
+    line-height: 1.45;
+    color: #444;
+    font-family: 'ISOCPEUR', Arial, sans-serif !important; /* enforce ISO font */
+}
+
+.welcome-action {
+    display: inline-block;
+    margin-top: 12px;
+    background: #0b5fff;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: clamp(14px, 3.4vw, 16px);
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 0 rgba(0,0,0,0.08);
+    font-family: 'ISOCPEUR', Arial, sans-serif !important; /* enforce ISO font */
+}
+
+.welcome-action:hover {
+    background: #084bd1;
+}
+
+.welcome-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: none;
+    background: #f1f3f5;
+    color: #333;
+    font-size: 18px;
+    line-height: 32px;
+    cursor: pointer;
+    font-family: 'ISOCPEUR', Arial, sans-serif !important; /* enforce ISO font */
+}
+
+.welcome-close:hover {
+    background: #e9ecef;
+}
+
+/* Compact tweaks for small phones */
+@media (max-width: 400px) {
+    .welcome-dialog {
+        padding: 14px 12px 12px 12px;
+        border-radius: 10px;
+    }
+    .welcome-close {
+        top: 6px;
+        right: 6px;
+    }
+}
+/* --- SITE LAYOUT TO ACCOMMODATE FOOTER --- */
+html, body {
+    height: 100%;
+}
+body {
+    display: flex;
+    flex-direction: column;
+}
+#map {
+    flex: 1 1 auto; /* Map grows to fill space above footer */
+    height: auto;   /* Let flexbox control height */
+}
+
+/* --- THIN FOOTER --- */
+.site-footer {
+    background: #ffffff;
+    border-top: 1px solid #e5e5e5;
+    color: #444;
+    font-family: 'ISOCPEUR', Arial, sans-serif;
+    font-size: 13px;
+    line-height: 1;
+    padding: 8px 10px;            /* Thin footprint */
+    z-index: 1100;                /* Above map but below modal (modal uses 2000) */
+}
+.footer-nav {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.footer-link {
+    display: inline-block;
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    border-radius: 16px;
+    color: #333;
+    text-decoration: none;
+    background: #f9f9f9;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.footer-link:hover {
+    background: #f1f1f1;
+    border-color: #ccc;
+}
+@media (max-width: 480px) {
+    .site-footer {
+        padding: 8px 8px;
+    }
+    .footer-link {
+        padding: 6px 8px;
+        font-size: 12px;
+    }
+}
+
+/* Keep existing file content below */
