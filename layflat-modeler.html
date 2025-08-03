@@ -322,10 +322,6 @@
           <input id="max-hose-psi" type="number" step="1" min="1" value="150">
         </div>
 
-        <div class="field">
-          <label for="req-outlet-psi">Desired Min Outlet Pressure (PSI)</label>
-          <input id="req-outlet-psi" type="number" step="1" min="0" value="20">
-        </div>
 
         <div class="field">
           <label for="hose-runs">Hose Runs</label>
@@ -379,14 +375,13 @@
     <section class="section-card" id="results-section" style="display:none;">
       <h3>Results Summary</h3>
       <p class="inline-help" style="margin-top:-6px;">
-        Total distance is derived from your path after downsampling (if applied). "Outlet met?" compares the calculated final pressure to your desired minimum outlet pressure.
+        Total distance is derived from your path after downsampling (if applied).
       </p>
       <table class="results-table">
         <tbody>
           <tr><th>Total Distance (ft)</th><td id="out-total-dist">—</td></tr>
           <tr><th>Used PSI Loss / 100 ft</th><td id="out-used-loss">—</td></tr>
           <tr><th>Final Outlet Pressure (PSI)</th><td id="out-final-psi">—</td></tr>
-          <tr><th>Outlet Pressure Met?</th><td id="out-outlet-met">—</td></tr>
           <tr><th>Midline Pumps Placed</th><td id="out-pump-count">—</td></tr>
         </tbody>
       </table>
@@ -738,7 +733,6 @@
     const elSourcePsi = document.getElementById('source-psi');
     const elMidlinePsi = document.getElementById('midline-psi');
     const elMaxHose = document.getElementById('max-hose-psi');
-    const elReqOutlet = document.getElementById('req-outlet-psi');
     const elHoseRuns = document.getElementById('hose-runs');
 
     const lossRadios = document.querySelectorAll('input[name="loss-method"]');
@@ -747,6 +741,8 @@
 
     const elKmlFile = document.getElementById('kml-file');
     const pathDirRadios = document.querySelectorAll('input[name="path-dir"]');
+    // Back-compat guard in case req-outlet existed in prior state
+    try { const stale = document.getElementById('req-outlet-psi'); if (stale) stale.remove(); } catch {}
 
     const elRun = document.getElementById('run-calc');
     const elReset = document.getElementById('reset-form');
@@ -797,7 +793,6 @@
       elSourcePsi.value = '100';
       elMidlinePsi.value = '80';
       elMaxHose.value = '150';
-      elReqOutlet.value = '20';
       document.querySelector('input[name="loss-method"][value="lookup"]').checked = true;
       elManualPsi100.value = '0';
       updateManualVisibility();
@@ -913,7 +908,7 @@
               recomputeManualInlets();
               const prof = computeProfileWithGivenPumps(manualDistFt, manualElevFt, Number(elSourcePsi.value), manualPumps, window.__lastUsedPsiLossPer100 || 0);
               const finalPressure = prof.pressures.length ? prof.pressures[prof.pressures.length-1] : 0;
-              renderResults(manualDistFt[manualDistFt.length-1]||0, (window.__lastUsedPsiLossPer100||0), finalPressure, Number(elReqOutlet.value), manualPumps.length, (window.__lastWarnings||[]), prof.distances, prof.pressures, 0);
+              renderResults(manualDistFt[manualDistFt.length-1]||0, (window.__lastUsedPsiLossPer100||0), finalPressure, manualPumps.length, (window.__lastWarnings||[]), prof.distances, prof.pressures, 0);
             });
           };
           // On input, do lightweight update without rebuilding list
@@ -1029,7 +1024,7 @@
 
       // Results and chart: pumpCount from manual, final outlet from profile tail
       const finalPressure = pressures.length ? pressures[pressures.length-1] : 0;
-      renderResults(manualDistFt[manualDistFt.length-1]||0, (window.__lastUsedPsiLossPer100||0), finalPressure, Number(elReqOutlet.value), manualPumps.length, (window.__lastWarnings||[]), distancesForChart, pressures, 0);
+      renderResults(manualDistFt[manualDistFt.length-1]||0, (window.__lastUsedPsiLossPer100||0), finalPressure, manualPumps.length, (window.__lastWarnings||[]), distancesForChart, pressures, 0);
 
       // Persist last run for report with manual selection
       window.__modelerLastRun = window.__modelerLastRun || {};
@@ -1333,7 +1328,7 @@
       return usedPsiLossPer100;
     }
 
-    function renderResults(totalFt, usedPsiLossPer100, finalPressure, reqOutlet, pumpCount, warnings, distances, pressures, minSuction) {
+    function renderResults(totalFt, usedPsiLossPer100, finalPressure, pumpCount, warnings, distances, pressures, minSuction) {
       elResults.style.display = 'block';
       elOutDist.textContent = totalFt.toFixed(1);
       elOutUsedLoss.textContent = usedPsiLossPer100.toFixed(4) + ' PSI/100ft';
@@ -1341,10 +1336,6 @@
       // Ensure we only count midline pumps, not the source pump (source is not included in auto.pumps)
       const midlineCount = Math.max(0, Number(pumpCount) || 0);
       elOutPumpCount.textContent = String(midlineCount);
-      const met = finalPressure >= reqOutlet;
-      elOutOutletMet.innerHTML = met
-        ? '<span class="badge good">Yes</span>'
-        : '<span class="badge bad">No</span>';
 
       if (warnings.length) {
         elWarningsWrap.style.display = 'block';
@@ -1375,7 +1366,6 @@
         midlinePsi: Number(elMidlinePsi.value),
         minSuction: 0,
         maxHose: Number(elMaxHose.value),
-        reqOutlet: Number(elReqOutlet.value),
         lossMethod: currentLossMethod(),
         manualPsi100: Number(elManualPsi100.value),
         placementStrategy: 'manual',
@@ -1401,7 +1391,6 @@
       // Manual-only: no user min suction; keep zero for compatibility
       const minSuction = 0;
       const maxHose = Number(elMaxHose.value);
-      const reqOutlet = Number(elReqOutlet.value);
       const lossMethod = currentLossMethod();
       const manualPsi100 = Number(elManualPsi100.value);
       const runsCount = Math.max(1, Number(elHoseRuns && elHoseRuns.value ? elHoseRuns.value : 1));
@@ -1646,9 +1635,6 @@
       const pressures = prof.pressures || [];
 
       // Checks
-      if (auto.finalPressure < reqOutlet) {
-        warnings.push(`Final outlet pressure (${auto.finalPressure.toFixed(1)} PSI) is below required minimum (${reqOutlet.toFixed(1)} PSI).`);
-      }
       if (pressures.some(p => p > maxHose)) {
         warnings.push('Calculated pressure exceeds the maximum hose rating somewhere along the line.');
       }
@@ -1666,7 +1652,7 @@
       }
 
       // Results + chart
-      renderResults(totalFt, usedPsiLossPer100, auto.finalPressure, reqOutlet, auto.pumps.length, warnings, distancesForChart, pressures, minSuction);
+      renderResults(totalFt, usedPsiLossPer100, auto.finalPressure, auto.pumps.length, warnings, distancesForChart, pressures, minSuction);
     }
 
     document.getElementById('run-calc').addEventListener('click', runCalc);
@@ -1716,34 +1702,35 @@
       // Inline CSS optimized for 8.5x11 portrait, narrow centered stack
       const styles = `
         <style>
-          @page { size: 8.5in 11in; margin: 0.4in; }
-          :root { --fg:#222; --muted:#666; --line:#e5e5e5; --accent:#0b5fff; --soft:#f6f8ff; }
+          @page { size: 8.5in 11in; margin: 0.5in; }
+          :root { --fg:#111; --muted:#555; --line:#dcddea; --accent:#0b5fff; --soft:#eef2ff; }
           * { box-sizing: border-box; }
-          body { font-family: 'ISOCPEUR', Arial, sans-serif; color:var(--fg); background:white; }
-          .wrap { max-width: 720px; margin: 0 auto; }
-          .hdr { text-align:center; margin: 4px 0 10px; }
-          .title { font-size:20px; font-weight:700; margin:2px 0 0; }
-          .subtitle { font-size:11px; color:var(--muted); }
-          .card { border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:#fff; }
-          .section-h { font-size:13px; margin: 0 0 6px; color:#333; }
-          .stack { display:grid; grid-template-columns: 1fr; gap:6px; }
-          .kv { display:flex; justify-content:space-between; gap:8px; font-size:12px; line-height:1.25; }
-          .kv .k { color:#444; }
-          .kv .v { color:#111; }
-          .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
-          .chip { font-size:10px; padding:2px 8px; border-radius:999px; background:var(--soft); border:1px solid #e7ebff; color:#333; }
-          table { width:100%; border-collapse: collapse; font-size:12px; }
-          th, td { border: 1px solid var(--line); padding:6px 7px; text-align:left; }
-          th { background:#f8f8ff; }
-          .chart { width:100%; height:280px; margin-top:6px; border:1px solid #eee; border-radius:8px; }
-          .badge { display:inline-block; padding:1px 7px; border-radius:10px; color:#fff; font-size:10px; }
+          body { font-family: 'ISOCPEUR', Arial, sans-serif; color:var(--fg); background:white; font-size: 14px; }
+          .wrap { max-width: 820px; margin: 0 auto; }
+          .hdr { text-align:center; margin: 8px 0 14px; }
+          .title { font-size:28px; font-weight:800; margin:4px 0 0; letter-spacing:0.2px; }
+          .subtitle { font-size:13px; color:var(--muted); }
+          .card { border:1px solid var(--line); border-radius:12px; padding:14px 16px; background:#fff; }
+          .section-h { font-size:16px; font-weight:700; margin: 0 0 8px; color:#222; }
+          .stack { display:grid; grid-template-columns: 1fr; gap:8px; }
+          .kv { display:flex; justify-content:space-between; gap:10px; font-size:14px; line-height:1.35; }
+          .kv .k { color:#333; font-weight:600; }
+          .kv .v { color:#111; font-weight:700; }
+          .chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+          .chip { font-size:12px; padding:4px 10px; border-radius:999px; background:var(--soft); border:1px solid #d8ddff; color:#222; font-weight:600; }
+          table { width:100%; border-collapse: collapse; font-size:14px; }
+          th, td { border: 1px solid var(--line); padding:8px 9px; text-align:left; }
+          th { background:#f3f5ff; font-weight:800; }
+          .chart { width:100%; height:320px; margin-top:8px; border:1px solid #e3e6ff; border-radius:10px; }
+          .badge { display:inline-block; padding:2px 9px; border-radius:10px; color:#fff; font-size:12px; font-weight:700; }
           .good { background:#198754; }
           .bad { background:#dc3545; }
-          .note { font-size:10px; color:var(--muted); margin-top:6px; }
+          .note { font-size:12px; color:var(--muted); margin-top:8px; }
           /* Axes labels for inline SVG */
           .axis-label {
-            font-size: 10px;
-            fill: #666;
+            font-size: 20px;
+            font-weight: 800;
+            fill: #222;
             font-family: 'ISOCPEUR', Arial, sans-serif;
           }
         </style>
@@ -1754,7 +1741,6 @@
       const pressures = state.profile.pressures || [];
       const svg = buildSimplePressureSvg(distances, pressures, state.minSuction);
 
-      const outletMet = state.results.finalPressure >= state.reqOutlet;
       const runsLabel = state.hoseRuns ? (state.hoseRuns === 2 ? 'Dual (parallel)' : 'Single') : 'Single';
       return `
         <!doctype html>
@@ -1775,7 +1761,6 @@
                   <div class="kv"><div class="k">Hose Diameter</div><div class="v">${fmt(state.hoseIn,0)} in</div></div>
                   <div class="kv"><div class="k">Hose Runs</div><div class="v">${runsLabel}</div></div>
                   <div class="kv"><div class="k">Friction Loss</div><div class="v">${fmt(usedLoss,4)} PSI/100 ft</div></div>
-                  <div class="kv"><div class="k">Desired Min Outlet</div><div class="v">${fmt(state.reqOutlet,1)} PSI</div></div>
                   <div class="kv"><div class="k">Max Hose PSI</div><div class="v">${fmt(state.maxHose,0)} PSI</div></div>
                   <div class="kv"><div class="k">Loss Method</div><div class="v">${state.lossMethod}</div></div>
                   <div class="kv"><div class="k">Path Direction</div><div class="v">${state.pathDir === 'dest_to_source' ? 'Destination → Source' : 'Source → Destination'}</div></div>
@@ -1785,7 +1770,6 @@
                   <span class="chip">Source Discharge: ${fmt(state.sourcePsi,1)} PSI</span>
                   <span class="chip">Midline Setpoint: ${fmt(state.midlinePsi,1)} PSI</span>
                   <span class="chip">Final Outlet: ${fmt(state.results.finalPressure,1)} PSI</span>
-                  <span class="chip">Outlet Met: <span class="badge ${outletMet?'good':'bad'}" style="vertical-align:middle;">${outletMet?'Yes':'No'}</span></span>
                   <span class="chip">Manual Pumps: ${(state.pumpsSummary||[]).length}</span>
                 </div>
               </div>
@@ -1861,8 +1845,8 @@
           <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${height-padB}" stroke="#aaa" stroke-width="1"/>
           <line x1="${padL}" y1="${height-padB}" x2="${width-padR}" y2="${height-padB}" stroke="#aaa" stroke-width="1"/>
           <!-- Axis labels -->
-          <text class="axis-label" x="${(padL + (width - padR)) / 2}" y="${height - 6}" text-anchor="middle">Distance (ft)</text>
-          <text class="axis-label" transform="translate(12 ${(padT + (height - padB)) / 2}) rotate(-90)" text-anchor="middle">Pressure (PSI)</text>
+          <text class="axis-label" x="${(padL + (width - padR)) / 2}" y="${height - 4}" text-anchor="middle">Distance (ft)</text>
+          <text class="axis-label" transform="translate(16 ${(padT + (height - padB)) / 2}) rotate(-90)" text-anchor="middle">Pressure (PSI)</text>
           <!-- Data -->
           ${minYLine}
           ${maxHoseLine}
@@ -1910,7 +1894,7 @@
     // Whenever a user changes inputs that affect hydraulics, just clear derived UI (no auto run)
     const hydraulicInputs = [
       elFlowBpm, elHoseSize, elSourcePsi, elMidlinePsi,
-      elMaxHose, elReqOutlet, elManualPsi100, elPlacementStrategy, elHoseRuns
+      elMaxHose, elManualPsi100, elPlacementStrategy, elHoseRuns
     ];
     hydraulicInputs.forEach(inp => {
       if (!inp) return;
