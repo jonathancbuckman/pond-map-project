@@ -1494,9 +1494,31 @@
           const horizonElev = elevationsFt[aheadIdx] - elevationsFt[placeIdx];
           const inletAtPlace = simulateTo(i0, p, placeIdx);
 
+          // Enforce positive suction/NPSH at placement by moving upstream if needed.
+          // Convert inlet PSI to feet of water head for NPSH comparison.
+          function psiToFeet(psi){ return psi / PSI_PER_FOOT_WATER; }
+          let adjustedIdx = placeIdx;
+          let inletPsiTrue = inletAtPlace;
+          let inletHeadFt = psiToFeet(inletPsiTrue);
+          // Approximate NPSHR at current flow (use both families and take the min requirement)
+          const gpmForNpsh = bpmToGpm(flowBpm);
+          const npshr8hnth = PUMP_8HNTH.npshrAt(Math.max(PUMP_8HNTH.domain().minQ, Math.min(PUMP_8HNTH.domain().maxQ, gpmForNpsh)));
+          const npshr8nht4 = PUMP_8NHT4VA.npshrAt(Math.max(PUMP_8NHT4VA.domain().minQ, Math.min(PUMP_8NHT4VA.domain().maxQ, gpmForNpsh)));
+          const npshrReqFt = Math.min(npshr8hnth, npshr8nht4); // optimistic, ensures at least one family is feasible
+          const suctionFloorPsi = Math.max(minSuction, 0);     // user floor in PSI
+
+          // Shift upstream until both inlet PSI ≥ user floor and inlet head ≥ NPSHR
+          while (adjustedIdx > i0 + 1) {
+            if (inletPsiTrue >= suctionFloorPsi && inletHeadFt >= npshrReqFt) break;
+            adjustedIdx -= 1;
+            inletPsiTrue = simulateTo(i0, p, adjustedIdx);
+            inletHeadFt = psiToFeet(inletPsiTrue);
+          }
+          placeIdx = adjustedIdx;
+
           function computeForFamily(famKey, policy){
             return computePumpDischargeByCurve({
-              inletPsi: Math.max(inletAtPlace, minSuction),
+              inletPsi: Math.max(inletPsiTrue, suctionFloorPsi),
               maxHosePsi: maxHose,
               flowBpm: flowBpm,
               psiLossPerFt: lossPerFt,
@@ -1512,22 +1534,21 @@
           } else if (placementStrategy === 'curve_8nht4va') {
             curve = computeForFamily('8NHT4VA','max');
           } else {
-            // auto-pick: choose 'max' policy for each family, then pick the one that yields higher discharge (more head)
-            // This tends to reduce total pump count while respecting Max Hose PSI.
+            // auto-pick with suction feasibility: evaluate both families with 'max' policy,
+            // discard family if resulting discharge would back-calc inlet below NPSHR (rare) then pick best head.
             const c1 = computeForFamily('8HNTH','max');
             const c2 = computeForFamily('8NHT4VA','max');
+            // Prefer higher discharge; tie-break on head, then lower RPM
             const pick = (c1.dischargePsi > c2.dischargePsi + 1e-6) ? c1 : (c2.dischargePsi > c1.dischargePsi + 1e-6 ? c2 :
-                         // tie: prefer higher headAddedFt; else prefer lower RPM
                          (c1.headAddedFt > c2.headAddedFt + 1e-6 ? c1 : (c2.headAddedFt > c1.headAddedFt + 1e-6 ? c2 :
                          ((c1.rpm||9999) <= (c2.rpm||9999) ? c1 : c2))));
-            curve = pick;
-            curve.family = (pick === c1) ? '8HNTH' : '8NHT4VA';
+            curve = pick; curve.family = (pick === c1) ? '8HNTH' : '8NHT4VA';
           }
 
           pumps.push({
             index: placeIdx,
             distanceFt: distFt[placeIdx],
-            pressureBefore: Math.max(inletAtPlace, minSuction),
+            pressureBefore: Math.max(inletPsiTrue, minSuction),
             discharge: curve.dischargePsi,
             rpm: curve.rpm,
             headAddedFt: curve.headAddedFt,
@@ -1585,44 +1606,66 @@
       const totalMi = milesFromFeet(state.results.totalFt);
       const usedLoss = state.results.usedPsiLossPer100;
 
-      // Build per-pump rows
+      // Helper to compute NPSHR used (min across families) for the flow in the run
+      const qgpm = bpmToGpm(state.flowBpm || 0);
+      const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+      const q8h = clamp(qgpm, (PUMP_8HNTH?.domain().minQ)||0, (PUMP_8HNTH?.domain().maxQ)||qgpm);
+      const q8v = clamp(qgpm, (PUMP_8NHT4VA?.domain().minQ)||0, (PUMP_8NHT4VA?.domain().maxQ)||qgpm);
+      const npshrMinFt = Math.min(
+        PUMP_8HNTH ? PUMP_8HNTH.npshrAt(q8h) : Infinity,
+        PUMP_8NHT4VA ? PUMP_8NHT4VA.npshrAt(q8v) : Infinity
+      );
+      const npshMarginFt = 5;
+      const npshrWithMarginFt = isFinite(npshrMinFt) ? (npshrMinFt + npshMarginFt) : undefined;
+
+      // Build per-pump rows with curve details where available
       const pumpRows = (state.pumpsSummary || []).map((p, i) => {
         const distMi = milesFromFeet(p.distanceFt);
+        const fam = p.family ? String(p.family) : '—';
+        const rpm = p.rpm != null ? `${p.rpm}` : '—';
+        const head = p.headAddedFt != null ? `${fmt(p.headAddedFt,0)} ft` : '—';
+        const q = p.qgpm != null ? `${fmt(p.qgpm,0)} gpm` : '—';
         return `
           <tr>
             <td>#${i+1}</td>
             <td>${fmt(distMi, 2)} mi</td>
             <td>${fmt(p.pressureBefore, 1)} PSI</td>
             <td>${fmt(p.discharge, 1)} PSI</td>
+            <td>${fam}</td>
+            <td>${rpm}</td>
+            <td>${head}</td>
+            <td>${q}</td>
           </tr>`;
-      }).join('') || `<tr><td colspan="4">No midline pumps placed</td></tr>`;
+      }).join('') || `<tr><td colspan="8">No midline pumps placed</td></tr>`;
 
-      // Inline CSS for print
+      // Inline CSS optimized for 8.5x11 portrait
       const styles = `
         <style>
-          @page { size: Letter; margin: 0.6in; }
-          body { font-family: 'ISOCPEUR', Arial, sans-serif; color:#222; }
-          .hdr { text-align:center; margin-bottom:8px; }
-          .title { font-size:22px; font-weight:700; margin:8px 0 2px; }
-          .subtitle { font-size:12px; color:#666; }
-          .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; margin: 14px 0; }
-          .kv { display:flex; gap:6px; font-size:13px; }
+          @page { size: 8.5in 11in; margin: 0.5in; }
+          :root { --fg:#222; --muted:#666; --line:#e5e5e5; --accent:#0b5fff; }
+          body { font-family: 'ISOCPEUR', Arial, sans-serif; color:var(--fg); }
+          .hdr { text-align:center; margin-bottom:6px; }
+          .title { font-size:20px; font-weight:700; margin:4px 0 0; }
+          .subtitle { font-size:11px; color:var(--muted); }
+          .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; margin: 10px 0; }
+          .kv { display:flex; gap:6px; font-size:12px; line-height:1.25; }
           .kv .k { width: 56%; color:#444; }
           .kv .v { flex:1; text-align:right; }
-          .section-h { font-size:16px; margin: 12px 0 6px; border-bottom:1px solid #e5e5e5; padding-bottom:4px; }
-          table { width:100%; border-collapse: collapse; font-size:13px; }
-          th, td { border: 1px solid #e5e5e5; padding:6px 8px; text-align:left; }
+          .section-h { font-size:14px; margin: 10px 0 6px; border-bottom:1px solid var(--line); padding-bottom:3px; }
+          table { width:100%; border-collapse: collapse; font-size:12px; }
+          th, td { border: 1px solid var(--line); padding:5px 6px; text-align:left; }
           th { background:#f8f8ff; }
-          .center { text-align:center; }
-          .chart { width:100%; height:300px; margin-top:8px; border:1px solid #eee; }
-          .footer { text-align:center; font-size:11px; color:#777; margin-top:10px; }
-          .badge { display:inline-block; padding:2px 8px; border-radius:12px; color:#fff; font-size:11px; }
+          .two-col { display:grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+          .chart { width:100%; height:260px; margin-top:6px; border:1px solid #eee; }
+          .footer { text-align:center; font-size:10px; color:#777; margin-top:8px; }
+          .badge { display:inline-block; padding:1px 7px; border-radius:10px; color:#fff; font-size:10px; }
           .good { background:#198754; }
           .bad { background:#dc3545; }
+          .note { font-size:10px; color:var(--muted); }
         </style>
       `;
 
-      // We embed profile arrays to render a simple SVG chart (no external libs)
+      // Embed profile as SVG (no external libs)
       const distances = state.profile.distances || [];
       const pressures = state.profile.pressures || [];
       const svg = buildSimplePressureSvg(distances, pressures, state.minSuction);
@@ -1638,32 +1681,42 @@
               <div class="subtitle">Generated ${dateStr}</div>
             </div>
 
-            <div class="grid">
-              <div class="kv"><div class="k">Desired Rate</div><div class="v">${fmt(state.flowBpm,0)} BPM</div></div>
-              <div class="kv"><div class="k">Distance</div><div class="v">${fmt(totalMi,2)} miles</div></div>
-
-              <div class="kv"><div class="k">Hose</div><div class="v">${fmt(state.hoseIn,0)} in</div></div>
-              <div class="kv"><div class="k">Friction Loss</div><div class="v">${fmt(usedLoss,4)} PSI/100 ft</div></div>
-
-              <div class="kv"><div class="k">Max Hose PSI</div><div class="v">${fmt(state.maxHose,0)} PSI</div></div>
-              <div class="kv"><div class="k">Placement Strategy</div><div class="v">${state.placementStrategy}</div></div>
-
-              <div class="kv"><div class="k">Source Discharge</div><div class="v">${fmt(state.sourcePsi,1)} PSI</div></div>
-              <div class="kv"><div class="k">Midline Discharge Setpoint</div><div class="v">${fmt(state.midlinePsi,1)} PSI</div></div>
-
-              <div class="kv"><div class="k">Min Inlet (Suction)</div><div class="v">${fmt(state.minSuction,1)} PSI</div></div>
-              <div class="kv"><div class="k">Desired Min Outlet</div><div class="v">${fmt(state.reqOutlet,1)} PSI</div></div>
-
-              <div class="kv"><div class="k">Final Outlet Pressure</div><div class="v">${fmt(state.results.finalPressure,1)} PSI</div></div>
-              <div class="kv"><div class="k">Outlet Met?</div><div class="v"><span class="badge ${outletMet?'good':'bad'}">${outletMet?'Yes':'No'}</span></div></div>
-
-              <div class="kv"><div class="k">Midline Pumps Placed</div><div class="v">${(state.pumpsSummary||[]).length}</div></div>
-              <div class="kv"><div class="k">Loss Method</div><div class="v">${state.lossMethod}</div></div>
+            <div class="two-col">
+              <div>
+                <div class="section-h">Inputs</div>
+                <div class="grid">
+                  <div class="kv"><div class="k">Desired Rate</div><div class="v">${fmt(state.flowBpm,0)} BPM</div></div>
+                  <div class="kv"><div class="k">Distance</div><div class="v">${fmt(totalMi,2)} miles</div></div>
+                  <div class="kv"><div class="k">Hose Diameter</div><div class="v">${fmt(state.hoseIn,0)} in</div></div>
+                  <div class="kv"><div class="k">Friction Loss</div><div class="v">${fmt(usedLoss,4)} PSI/100 ft</div></div>
+                  <div class="kv"><div class="k">Min Inlet (Suction)</div><div class="v">${fmt(state.minSuction,1)} PSI</div></div>
+                  <div class="kv"><div class="k">Desired Min Outlet</div><div class="v">${fmt(state.reqOutlet,1)} PSI</div></div>
+                  <div class="kv"><div class="k">Max Hose PSI</div><div class="v">${fmt(state.maxHose,0)} PSI</div></div>
+                  <div class="kv"><div class="k">Pump Logic</div><div class="v">${state.placementStrategy}</div></div>
+                </div>
+                ${isFinite(npshrWithMarginFt) ? `<div class="note">NPSHR baseline (min across families) ≈ ${fmt(npshrWithMarginFt,0)} ft (incl. 5 ft margin) at ${fmt(qgpm,0)} gpm</div>` : ''}
+              </div>
+              <div>
+                <div class="section-h">Source & Results</div>
+                <div class="grid">
+                  <div class="kv"><div class="k">Source Discharge</div><div class="v">${fmt(state.sourcePsi,1)} PSI</div></div>
+                  <div class="kv"><div class="k">Midline Discharge Setpoint</div><div class="v">${fmt(state.midlinePsi,1)} PSI</div></div>
+                  <div class="kv"><div class="k">Final Outlet Pressure</div><div class="v">${fmt(state.results.finalPressure,1)} PSI</div></div>
+                  <div class="kv"><div class="k">Outlet Met?</div><div class="v"><span class="badge ${outletMet?'good':'bad'}">${outletMet?'Yes':'No'}</span></div></div>
+                  <div class="kv"><div class="k">Midline Pumps Placed</div><div class="v">${(state.pumpsSummary||[]).length}</div></div>
+                  <div class="kv"><div class="k">Loss Method</div><div class="v">${state.lossMethod}</div></div>
+                </div>
+              </div>
             </div>
 
             <div class="section-h">Midline Pumps</div>
             <table>
-              <thead><tr><th>#</th><th>Distance</th><th>Inlet PSI</th><th>Discharge PSI</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>#</th><th>Distance</th><th>Inlet PSI</th><th>Discharge PSI</th>
+                  <th>Family</th><th>RPM</th><th>Head Added</th><th>Flow</th>
+                </tr>
+              </thead>
               <tbody>${pumpRows}</tbody>
             </table>
 
@@ -1675,7 +1728,7 @@
               <ul>${state.results.warnings.map(w => `<li>${w}</li>`).join('')}</ul>
             ` : ''}
 
-            <div class="footer">Print or Save as PDF using your browser</div>
+            <div class="footer">Print or Save as PDF (Letter, portrait). Generated by Layflat Modeler.</div>
           </body>
         </html>
       `;
