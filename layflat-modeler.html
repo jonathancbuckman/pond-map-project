@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Layflat Hydraulic Modeler</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta name="msapplication-TileColor" content="#da532c">
+  <meta name="theme-color" content="#ffffff">
+
+  <!-- Leaflet CSS for map preview -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+  <style>
+    /* Page-local styles for the modeler (kept minimal; reuses global font) */
+    .modeler-wrap {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 12px;
+      font-family: 'ISOCPEUR', Arial, sans-serif;
+    }
+    .site-header {
+      padding: 10px;
+      border-bottom: 1px solid #e5e5e5;
+      background: #fff;
+      font-family: 'ISOCPEUR', Arial, sans-serif;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .field label {
+      font-size: 13px;
+    }
+    .field input[type="number"], .field select, .field input[type="file"] {
+      padding: 8px 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: 'ISOCPEUR', Arial, sans-serif;
+      background: #fff;
+      color: #222;
+    }
+    .radio-row {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      font-size: 14px;
+    }
+    .section-card {
+      background: #fff;
+      border: 1px solid #e5e5e5;
+      border-radius: 10px;
+      padding: 14px;
+      margin-top: 14px;
+    }
+    .section-card h3 {
+      margin: 0 0 10px 0;
+      font-size: 16px;
+    }
+    .btn {
+      display: inline-block;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #0b5fff;
+      color: #fff;
+      text-decoration: none;
+      cursor: pointer;
+      font-family: 'ISOCPEUR', Arial, sans-serif;
+      font-size: 14px;
+      border-color: #084bd1;
+    }
+    .btn[disabled] {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+    .btn.secondary {
+      background: #f9f9f9;
+      color: #333;
+      border-color: #ddd;
+    }
+    .inline-help {
+      font-size: 12px;
+      color: #666;
+    }
+    .results-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    .results-table th, .results-table td {
+      border: 1px solid #e5e5e5;
+      padding: 6px 8px;
+    }
+    .results-table th {
+      background: #f8f8f8;
+      text-align: left;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      color: #fff;
+    }
+    .badge.good { background: #198754; }
+    .badge.bad { background: #dc3545; }
+    .warnings {
+      margin: 8px 0 0 18px;
+      color: #b58900;
+    }
+    .chart-box {
+      position: relative;
+      height: 320px;
+      width: 100%;
+    }
+    /* Map preview box */
+    #busy-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(255,255,255,0.75);
+      z-index: 3000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(1px);
+    }
+    .busy-card {
+      background: #ffffff;
+      border: 1px solid #e5e5e5;
+      border-radius: 10px;
+      padding: 14px 16px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+      font-family: 'ISOCPEUR', Arial, sans-serif;
+      color: #333;
+      min-width: 260px;
+      text-align: center;
+    }
+    .spinner {
+      width: 22px;
+      height: 22px;
+      border: 3px solid #cfd8ff;
+      border-top-color: #0b5fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 10px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    #modeler-map {
+      height: 350px;
+      width: 100%;
+      border: 1px solid #e5e5e5;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body class="modeler-page">
+  <header class="site-header" role="banner">
+    <strong>Layflat Hydraulic Modeler</strong>
+  </header>
+
+  <main class="modeler-wrap" role="main">
+    <!-- Introductory guidance -->
+    <section class="section-card" style="background:#fcfcff;">
+      <h3>How to use this tool</h3>
+      <p class="inline-help" style="max-width:880px;">
+        This calculator estimates pressure along a layflat hose route and places midline pumps automatically to respect a minimum suction pressure.
+        To get started:
+      </p>
+      <ol class="inline-help" style="max-width:880px; margin-top:6px; padding-left:18px;">
+        <li>Prepare a KML or KMZ file containing a single LineString that follows your hose path on the ground. You can draw this path in Google Earth or other GIS tools.</li>
+        <li>Upload the file below. Choose the drawing direction so the path begins at your Source pump and ends at the Destination (or reverse if needed).</li>
+        <li>Set your hydraulic inputs (flow, hose diameter, pressure limits). Choose how friction loss is determined (lookup vs manual).</li>
+        <li>Click "Run Calculation". You'll see:
+          <ul style="margin:6px 0 0 18px;">
+            <li>Map preview of the path and any automatically placed midline pumps.</li>
+            <li>A pressure profile chart with your minimum suction requirement.</li>
+            <li>A results summary including total path distance, final outlet pressure, and pump count.</li>
+          </ul>
+        </li>
+      </ol>
+      <p class="inline-help" style="max-width:880px; margin-top:8px;">
+        Notes: Elevations are sampled from public terrain data and may be approximate. The JSONP fallback is used during local testing to work around browser CORS restrictions.
+      </p>
+    </section>
+
+    <!-- 1) Path first: user uploads KML/KMZ up front -->
+    <section class="section-card">
+      <h3>Path (KML/KMZ)</h3>
+      <p class="inline-help" style="margin-top:-6px;">
+        Upload a file containing one LineString. If the route was drawn from Destination back to Source, use the "Reverse" option so the simulation starts at the Source pump.
+      </p>
+      <div class="form-grid">
+        <div class="field">
+          <label for="kml-file">Upload KML or KMZ (LineString path)</label>
+          <input id="kml-file" type="file" accept=".kml,.kmz">
+          <div class="inline-help">Up to ~2,000 points are used (downsampling applied if needed). Direction can be reversed below.</div>
+        </div>
+        <div class="field">
+          <label>Path Drawing Direction</label>
+          <div class="radio-row">
+            <label><input type="radio" name="path-dir" value="source_to_dest" checked> Source → Destination</label>
+            <label><input type="radio" name="path-dir" value="dest_to_source"> Destination → Source (Reverse)</label>
+          </div>
+          <div class="inline-help">Pick the direction that matches how your LineString was drawn so the "Source" end is simulated first.</div>
+        </div>
+      </div>
+      <div class="inline-help" id="path-status" style="margin-top:8px;display:none;"></div>
+    </section>
+
+    <!-- 2) Core hydraulics inputs -->
+    <section class="section-card">
+      <h3>Hydraulic Inputs</h3>
+      <p class="inline-help" style="margin-top:-6px;">
+        Set operating parameters for your system. The simulation starts at the Source discharge pressure and accounts for friction and terrain elevation changes along the uploaded path. When pressure is predicted to fall below the minimum suction threshold ahead, a midline pump is placed to boost pressure.
+      </p>
+      <div class="form-grid">
+        <div class="field">
+          <label for="flow-bpm">Flow Rate (Barrels per minute)</label>
+          <input id="flow-bpm" type="number" step="0.1" min="0" value="50">
+        </div>
+
+        <div class="field">
+          <label for="hose-size">Hose Diameter</label>
+          <select id="hose-size">
+            <option value="12">12 inches</option>
+            <option value="14">14 inches</option>
+            <option value="16" selected>16 inches</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="source-psi">Source Pump Discharge (PSI)</label>
+          <input id="source-psi" type="number" step="0.1" min="0.1" value="100">
+          <div class="inline-help">Starting pressure at the source (e.g., water source or first pump).</div>
+        </div>
+
+        <div class="field">
+          <label for="midline-psi">Midline Pump Discharge (PSI)</label>
+          <input id="midline-psi" type="number" step="0.1" min="0.1" value="80">
+          <div class="inline-help">Discharge setpoint used for automatically placed midline pumps.</div>
+        </div>
+
+        <div class="field">
+          <label for="min-suction-psi">Min Midline Pump Inlet (PSI)</label>
+          <input id="min-suction-psi" type="number" step="0.1" min="0" value="20">
+          <div class="inline-help">Minimum suction requirement. The planner places a pump before sections where pressure would dip below this value.</div>
+        </div>
+
+        <div class="field">
+          <label for="max-hose-psi">Max Allowable Hose Pressure (PSI)</label>
+          <input id="max-hose-psi" type="number" step="1" min="1" value="150">
+          <div class="inline-help">Upper limit for the hose rating. The results warn if the profile exceeds this anywhere.</div>
+        </div>
+
+        <div class="field">
+          <label for="req-outlet-psi">Desired Min Outlet Pressure (PSI)</label>
+          <input id="req-outlet-psi" type="number" step="1" min="0" value="20">
+          <div class="inline-help">Target pressure at the destination end of the path.</div>
+        </div>
+      </div>
+
+      <div class="section-card" style="margin-top:12px;">
+        <div class="field">
+          <label>Friction Loss Method</label>
+          <div class="radio-row">
+            <label><input type="radio" name="loss-method" value="lookup" checked> Calculate from Flow & Hose Size</label>
+            <label><input type="radio" name="loss-method" value="manual"> Enter PSI Loss Manually</label>
+          </div>
+          <div class="inline-help">
+            Lookup mode converts BPM → GPM, interpolates a 12″ hose loss table, then scales to your diameter (~D<sup>-4.87</sup>) and converts to PSI per 100 ft.
+            Manual mode lets you input PSI/100 ft directly (e.g., from vendor data or field testing).
+          </div>
+        </div>
+        <div id="manual-loss-wrap" class="field" style="display:none; margin-top:8px;">
+          <label for="manual-loss-psi100">Manual PSI Loss per 100 ft</label>
+          <input id="manual-loss-psi100" type="number" step="0.01" min="0" value="0">
+          <div class="inline-help">Only used when "Enter PSI Loss Manually" is selected. Units: PSI per 100 ft.</div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
+        <button id="run-calc" class="btn">Run Calculation</button>
+        <button id="reset-form" class="btn secondary">Reset</button>
+      </div>
+    </section>
+
+    <section class="section-card" id="map-section" style="display:none;">
+      <h3>Map Preview</h3>
+      <p class="inline-help" style="margin-top:-6px;">
+        The polyline shows your uploaded path. Pump markers are placed automatically where the inlet pressure would otherwise dip below the minimum suction threshold.
+        Click markers for details.
+      </p>
+      <div id="modeler-map"></div>
+      <div class="inline-help" id="map-hint" style="margin-top:6px;">Path and pump markers will display here after KML/KMZ processing.</div>
+    </section>
+
+    <section class="section-card" id="results-section" style="display:none;">
+      <h3>Results Summary</h3>
+      <p class="inline-help" style="margin-top:-6px;">
+        Total distance is derived from your path after downsampling (if applied). "Outlet met?" compares the calculated final pressure to your desired minimum outlet pressure.
+      </p>
+      <table class="results-table">
+        <tbody>
+          <tr><th>Total Distance (ft)</th><td id="out-total-dist">—</td></tr>
+          <tr><th>Used PSI Loss / 100 ft</th><td id="out-used-loss">—</td></tr>
+          <tr><th>Final Outlet Pressure (PSI)</th><td id="out-final-psi">—</td></tr>
+          <tr><th>Outlet Pressure Met?</th><td id="out-outlet-met">—</td></tr>
+          <tr><th>Midline Pumps Placed</th><td id="out-pump-count">—</td></tr>
+        </tbody>
+      </table>
+      <div id="warnings-wrap" style="margin-top:8px; display:none;">
+        <strong>Warnings</strong>
+        <ul class="warnings" id="warnings-list"></ul>
+      </div>
+    </section>
+
+    <section class="section-card" id="chart-section" style="display:none;">
+      <h3>Pressure Profile</h3>
+      <p class="inline-help" style="margin-top:-6px;">
+        The blue line is pressure along the path (includes elevation changes and friction). The dashed line is your minimum suction threshold. Vertical jumps indicate pump boosts.
+      </p>
+      <div class="chart-box">
+        <canvas id="pressureChart"></canvas>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer" role="contentinfo">
+    <nav class="footer-nav" aria-label="Footer">
+      <a class="footer-link" href="index.html">Home</a>
+      <a class="footer-link" href="layflat-modeler.html" aria-current="page">Layflat Hydraulic Modeler</a>
+    </nav>
+  </footer>
+
+  <!-- Leaflet JS for map preview -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Chart.js for pressure plot -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <script>
+    // --- Constants and data ---
+    const BARRELS_TO_GALLONS = 42.0;
+    const PSI_PER_FOOT_WATER = 0.433;
+    const OPENTOPODATA_ENDPOINT = 'https://api.opentopodata.org/v1/ned10m';
+    // CORS-safe JSON proxies to bypass missing CORS headers from third-party services.
+    // Try in order; some may block or rate-limit.
+    const CORS_JSON_PROXIES = [
+      // Use CORS proxies that accept a full absolute URL (no double protocol)
+      // Each entry is an object with: { mode: 'prefix' | 'param', value: string }
+      { mode: 'prefix', value: 'https://r.jina.ai/' },               // fetches target URL as text/json with permissive CORS
+      { mode: 'param',  value: 'https://api.allorigins.win/raw?url=' }, // AllOrigins RAW passthrough
+      { mode: 'prefix', value: 'https://cors.isomorphic-git.org/' }  // isomorphic-git CORS proxy
+    ];
+    const MAX_POINTS = 2000;          // hard cap for safety
+    const BATCH_SIZE = 100;           // OpenTopoData batch chunk
+    // 12" reference table: [GPM, head loss (ft) per 100 ft]
+    const HOSE_DATA_12_INCH = [
+      [0,0.0],[300,0.03],[350,0.04],[400,0.04],[450,0.05],
+      [500,0.06],[550,0.07],[600,0.09],[650,0.11],[700,0.13],
+      [750,0.15],[800,0.17],[850,0.19],[900,0.21],[950,0.23],
+      [1000,0.26],[1100,0.30],[1200,0.35],[1300,0.40],[1400,0.46],
+      [1500,0.53],[1600,0.60],[1700,0.67],[1800,0.75],[1900,0.83],
+      [2000,0.92],[2500,1.45],[3000,2.05],[3500,2.75],[4000,3.57],
+      [4500,4.31],[5000,5.01]
+    ];
+
+    function bpmToGpm(bpm) { return bpm * BARRELS_TO_GALLONS; }
+
+    function lookupHeadLoss12in(gpm) {
+      if (gpm < 0) return null;
+      if (gpm === 0) return 0.0;
+      let lower = null, upper = null;
+      for (let i=0;i<HOSE_DATA_12_INCH.length;i++) {
+        const [x, y] = HOSE_DATA_12_INCH[i];
+        if (x === gpm) return y;
+        if (x < gpm) lower = [x,y];
+        if (x > gpm) { upper = [x,y]; break; }
+      }
+      if (!lower && upper) return null;
+      if (lower && !upper) return null;
+      if (!lower || !upper) return null;
+      const [x1,y1] = lower, [x2,y2] = upper;
+      if (x2 === x1) return y1;
+      return y1 + (y2 - y1) * (gpm - x1) / (x2 - x1);
+    }
+
+    function scaleHeadLossByDiameter(headLoss12, targetInches) {
+      const d = Number(targetInches);
+      if (!d || d <= 0) return headLoss12;
+      if (d === 12) return headLoss12;
+      const factor = Math.pow(12.0 / d, 4.87);
+      return headLoss12 * factor;
+    }
+
+    function headLossFtToPsi(headLossFt) {
+      return headLossFt * PSI_PER_FOOT_WATER;
+    }
+
+    // Downsample coordinates to at most maxPoints using even index sampling
+    function downsampleLatLngs(latlngs, maxPoints) {
+      if (!latlngs || latlngs.length <= maxPoints) return latlngs || [];
+      const result = [];
+      const step = (latlngs.length - 1) / (maxPoints - 1);
+      for (let i = 0; i < maxPoints; i++) {
+        const idx = Math.round(i * step);
+        result.push(latlngs[idx]);
+      }
+      return result;
+    }
+
+    // Parse KML text to extract first LineString coordinates as [lat, lng]
+    function parseKmlLineStringToLatLngs(kmlText) {
+      const parser = new DOMParser();
+      const xml = parser.parseFromString(kmlText, 'text/xml');
+      const coords = xml.getElementsByTagName('coordinates');
+      if (!coords || !coords.length) return [];
+      const text = coords[0].textContent || '';
+      const parts = text.trim().split(/\s+/);
+      const latlngs = [];
+      for (const p of parts) {
+        const [lonStr, latStr] = p.split(',');
+        const lat = parseFloat(latStr), lon = parseFloat(lonStr);
+        if (isFinite(lat) && isFinite(lon)) latlngs.push([lat, lon]);
+      }
+      return latlngs;
+    }
+
+    // Read KMZ -> first KML file content string
+    async function extractKmlFromKmz(file) {
+      // Use browser-unpacked zip via JSZip; to avoid new lib, do simple check here:
+      // If we don't have JSZip, fallback: reject with message.
+      // For minimal restructuring, we support KML directly now and show note for KMZ.
+      throw new Error('KMZ parsing requires a zip library (not included). Please upload a .kml file for now.');
+    }
+
+    // Fetch elevations for latlngs via OpenTopoData in batches; returns meters array
+    async function fetchElevationsOpenTopo(latlngs) {
+      // Strategy (more robust):
+      // 1) Try multiple permissive CORS proxies (works on localhost).
+      // 2) Try direct fetch (works if API provides CORS).
+      // 3) Try JSONP via AllOrigins (last resort).
+      // 4) If all fail, return zeros for the batch to keep UI functioning.
+      const elevations = [];
+  
+      async function fetchJson(url) {
+        const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        // Some proxies (e.g., r.jina.ai) may downconvert; try JSON, fallback to text->JSON
+        try {
+          return await resp.json();
+        } catch {
+          const txt = await resp.text();
+          try {
+            return JSON.parse(txt);
+          } catch {
+            // For AllOrigins raw endpoint, the response is the upstream JSON already
+            // If it wasn't valid JSON, surface an error
+            throw new Error('Non-JSON response');
+          }
+        }
+      }
+  
+      // JSONP fallback using allorigins JSONP (stable callback delivery)
+      async function fetchViaJsonp(url) {
+        return new Promise((resolve, reject) => {
+          const cbName = 'otd_cb_' + Math.random().toString(36).slice(2);
+          let finished = false;
+          let script = null;
+          const cleanup = () => {
+            try { delete window[cbName]; } catch {}
+            if (script && script.parentNode) script.parentNode.removeChild(script);
+          };
+          const finish = (fn, val) => {
+            if (finished) return;
+            finished = true;
+            cleanup();
+            fn(val);
+          };
+          window[cbName] = (payload) => {
+            try {
+              // allorigins wraps response in { contents: "<raw text>", status: {...} }
+              const txt = typeof payload === 'string' ? payload : (payload && payload.contents) || '';
+              const data = JSON.parse(txt);
+              finish(resolve, data);
+            } catch (e) {
+              finish(reject, new Error('JSONP decode error'));
+            }
+          };
+          // Use allorigins JSONP to fetch target and return raw text
+          const jsonpUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&callback=${cbName}`;
+          script = document.createElement('script');
+          script.src = jsonpUrl;
+          script.onerror = () => finish(reject, new Error('JSONP script load error'));
+          document.head.appendChild(script);
+          // Safety timeout (10s)
+          setTimeout(() => finish(reject, new Error('JSONP timeout')), 10000);
+        });
+      }
+  
+      for (let i = 0; i < latlngs.length; i += BATCH_SIZE) {
+        const batch = latlngs.slice(i, i + BATCH_SIZE);
+        const locations = batch.map(([lat, lon]) => `${lat.toFixed(6)},${lon.toFixed(6)}`).join('|');
+        // Do not duplicate dataset param; base endpoint already includes dataset path.
+        const directUrl = `${OPENTOPODATA_ENDPOINT}?locations=${encodeURIComponent(locations)}`;
+  
+        let got = null;
+        try {
+          // 1) Try via multiple proxies first to bypass CORS locally
+          let lastProxyErr = null;
+          for (const proxy of CORS_JSON_PROXIES) {
+            try {
+              const proxiedUrl = proxy.mode === 'param'
+                ? (proxy.value + encodeURIComponent(directUrl))
+                : (proxy.value + directUrl); // prefix mode
+              const data = await fetchJson(proxiedUrl);
+              if (data && data.status === 'OK' && Array.isArray(data.results)) {
+                got = data.results.map(r => (r && typeof r.elevation === 'number') ? r.elevation : 0);
+                break;
+              }
+              lastProxyErr = new Error('Proxy returned invalid payload');
+            } catch (e) {
+              lastProxyErr = e;
+            }
+          }
+          if (!got) throw lastProxyErr || new Error('All proxies failed');
+        } catch (proxyErr) {
+          try {
+            // 2) Try direct without proxy
+            const data = await fetchJson(directUrl);
+            if (!data || data.status !== 'OK' || !Array.isArray(data.results)) throw new Error('Invalid payload');
+            got = data.results.map(r => (r && typeof r.elevation === 'number') ? r.elevation : 0);
+          } catch (directErr) {
+            try {
+              // 3) JSONP last resort
+              const data = await fetchViaJsonp(directUrl);
+              if (!data || data.status !== 'OK' || !Array.isArray(data.results)) throw new Error('JSONP invalid payload');
+              got = data.results.map(r => (r && typeof r.elevation === 'number') ? r.elevation : 0);
+            } catch (jsonpErr) {
+              console.warn('Elevation fetch failed via proxies, direct, and JSONP. Using flat elevation for this batch.', proxyErr, directErr, jsonpErr);
+              got = batch.map(() => 0);
+            }
+          }
+        }
+        elevations.push(...got);
+      }
+      return elevations;
+    }
+
+    // Compute cumulative distance in feet along polyline of [lat, lon] using simple haversine
+    function cumulativeDistancesFt(latlngs) {
+      const R = 6371000; // meters
+      const toRad = d => d * Math.PI / 180;
+      const dists = [0];
+      let cum = 0;
+      for (let i = 1; i < latlngs.length; i++) {
+        const [lat1, lon1] = latlngs[i-1];
+        const [lat2, lon2] = latlngs[i];
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        const meters = R * c;
+        const feet = meters * 3.28084;
+        cum += feet;
+        dists.push(cum);
+      }
+      return dists;
+    }
+
+    // Automatic midline pump placement (improved look-ahead):
+    // Proactively place a pump at index i when looking ahead shows the pressure
+    // would drop below minSuction before or at i+k within a small horizon.
+    function placeMidlinePumps(distFt, elevFt, sourcePsi, midlinePsi, minSuctionPsi, psiLossPer100) {
+      const lossPerFt = psiLossPer100 / 100.0;
+      const pumps = []; // {index, distanceFt, pressureBefore, discharge}
+      let currentPressure = sourcePsi;
+
+      // How far ahead to look (in segments). Tunable small horizon to keep runtime low.
+      const HORIZON = 10;
+
+      for (let i = 0; i < distFt.length - 1; i++) {
+        // 1) Look ahead from current position to anticipate future drop
+        let lookAheadPressure = currentPressure;
+        let needsPump = false;
+
+        // Look ahead starting from NEXT segment (i+1)
+        for (let j = i + 1; j < Math.min(i + 1 + HORIZON, distFt.length); j++) {
+          const segLenLA = distFt[j] - distFt[j - 1];
+          const dhFtLA = elevFt[j] - elevFt[j - 1];
+          const elevDeltaPsiLA = -dhFtLA * PSI_PER_FOOT_WATER;
+          const frictionPsiLA = lossPerFt * segLenLA;
+          lookAheadPressure = lookAheadPressure + elevDeltaPsiLA - frictionPsiLA;
+
+          if (lookAheadPressure < minSuctionPsi) {
+            needsPump = true;
+            break;
+          }
+          // Optional early-exit if comfortable margin
+          if (lookAheadPressure > (minSuctionPsi + 20)) {
+            break;
+          }
+        }
+
+        // 2) If needed, place pump right here (except index 0 unless absolutely required)
+        if (needsPump && (i > 0 || currentPressure < minSuctionPsi)) {
+          pumps.push({
+            index: i,
+            distanceFt: distFt[i],
+            pressureBefore: currentPressure,
+            discharge: midlinePsi
+          });
+          currentPressure = midlinePsi; // boost before traversing the next segment
+        }
+
+        // 3) Traverse the current segment i -> i+1 using currentPressure (possibly boosted)
+        const segLen = distFt[i + 1] - distFt[i];
+        const dhFt = elevFt[i + 1] - elevFt[i]; // positive = uphill
+        const elevDeltaPsi = -dhFt * PSI_PER_FOOT_WATER;
+        const frictionPsi = lossPerFt * segLen;
+        currentPressure = currentPressure + elevDeltaPsi - frictionPsi;
+      }
+
+      return { pumps, finalPressure: currentPressure };
+    }
+
+    // Build pressure profile including placed pumps (clear boost visualization)
+    // Returns an object with distances and pressures arrays aligned 1:1 for Chart.js
+    function buildProfileWithPumps(distFt, elevFt, sourcePsi, pumps, psiLossPer100) {
+      const lossPerFt = psiLossPer100 / 100.0;
+      const outDistances = [];
+      const outPressures = [];
+      let p = sourcePsi;
+      let pumpIdx = 0;
+
+      // Seed first point
+      outDistances.push(distFt[0]);
+      outPressures.push(p);
+
+      for (let i = 1; i < distFt.length; i++) {
+        // Check if a pump exists exactly at index i
+        if (pumpIdx < pumps.length && pumps[pumpIdx].index === i) {
+          // Add point just before pump (current pressure at this location)
+          outDistances.push(distFt[i]);
+          outPressures.push(p);
+          
+          // Add point just after pump (boosted pressure at same location)
+          p = pumps[pumpIdx].discharge;
+          outDistances.push(distFt[i]);
+          outPressures.push(p);
+          pumpIdx++;
+        }
+
+        // Calculate pressure change through current segment
+        const segLen = distFt[i] - distFt[i - 1];
+        const dhFt = elevFt[i] - elevFt[i - 1];
+        const elevDeltaPsi = -dhFt * PSI_PER_FOOT_WATER;
+        const frictionPsi = lossPerFt * segLen;
+        p = p + elevDeltaPsi - frictionPsi;
+
+        // Add end point of segment
+        outDistances.push(distFt[i]);
+        outPressures.push(p);
+      }
+      
+      return { distances: outDistances, pressures: outPressures };
+    }
+
+    // --- DOM refs ---
+    const elFlowBpm = document.getElementById('flow-bpm');
+    const elHoseSize = document.getElementById('hose-size');
+    const elSourcePsi = document.getElementById('source-psi');
+    const elMidlinePsi = document.getElementById('midline-psi');
+    const elMinSuction = document.getElementById('min-suction-psi');
+    const elMaxHose = document.getElementById('max-hose-psi');
+    const elReqOutlet = document.getElementById('req-outlet-psi');
+
+    const lossRadios = document.querySelectorAll('input[name="loss-method"]');
+    const elManualWrap = document.getElementById('manual-loss-wrap');
+    const elManualPsi100 = document.getElementById('manual-loss-psi100');
+
+    const elKmlFile = document.getElementById('kml-file');
+    const pathDirRadios = document.querySelectorAll('input[name="path-dir"]');
+
+    const elRun = document.getElementById('run-calc');
+    const elReset = document.getElementById('reset-form');
+
+    const elMapSection = document.getElementById('map-section');
+    const elResults = document.getElementById('results-section');
+    const elOutDist = document.getElementById('out-total-dist');
+    const elOutUsedLoss = document.getElementById('out-used-loss');
+    const elOutFinalPsi = document.getElementById('out-final-psi');
+    const elOutOutletMet = document.getElementById('out-outlet-met');
+    const elOutPumpCount = document.getElementById('out-pump-count');
+    const elWarningsWrap = document.getElementById('warnings-wrap');
+    const elWarningsList = document.getElementById('warnings-list');
+
+    const elChartSection = document.getElementById('chart-section');
+    const chartCanvas = document.getElementById('pressureChart');
+
+    let chartInstance = null;
+    let mapInstance = null;
+    let pathLayer = null;
+    let pumpLayer = null;
+
+    function currentLossMethod() {
+      for (const r of lossRadios) if (r.checked) return r.value;
+      return 'lookup';
+    }
+    function currentPathDir() {
+      for (const r of pathDirRadios) if (r.checked) return r.value;
+      return 'source_to_dest';
+    }
+    function updateManualVisibility() {
+      elManualWrap.style.display = currentLossMethod() === 'manual' ? 'block' : 'none';
+    }
+    lossRadios.forEach(r => r.addEventListener('change', updateManualVisibility));
+    updateManualVisibility();
+
+    function resetForm() {
+      elFlowBpm.value = '50';
+      elHoseSize.value = '16';
+      elSourcePsi.value = '100';
+      elMidlinePsi.value = '80';
+      elMinSuction.value = '20';
+      elMaxHose.value = '150';
+      elReqOutlet.value = '20';
+      document.querySelector('input[name="loss-method"][value="lookup"]').checked = true;
+      elManualPsi100.value = '0';
+      updateManualVisibility();
+      elResults.style.display = 'none';
+      elChartSection.style.display = 'none';
+      elMapSection.style.display = 'none';
+      if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+      if (mapInstance) {
+        try { mapInstance.remove(); } catch{}
+        mapInstance = null; pathLayer = null; pumpLayer = null;
+      }
+      elKmlFile.value = '';
+    }
+    elReset.addEventListener('click', resetForm);
+
+    function ensureMap() {
+      if (mapInstance) return mapInstance;
+      elMapSection.style.display = 'block';
+      mapInstance = L.map('modeler-map', { zoomControl: true }).setView([35.5, -98.5], 6);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(mapInstance);
+      pumpLayer = L.layerGroup().addTo(mapInstance);
+      return mapInstance;
+    }
+
+    // Small status helper to report path length and points
+    function updatePathStatus(latlngs, totalFt) {
+      const el = document.getElementById('path-status');
+      if (!el) return;
+      if (!latlngs || !latlngs.length) { el.style.display = 'none'; return; }
+      el.style.display = 'block';
+      el.textContent = `Loaded ${latlngs.length} points • Total distance ~ ${totalFt.toFixed(0)} ft`;
+    }
+
+    function renderPathOnMap(latlngs, pumps) {
+      const map = ensureMap();
+      if (pathLayer) { map.removeLayer(pathLayer); pathLayer = null; }
+      pumpLayer.clearLayers();
+
+      if (latlngs && latlngs.length > 1) {
+        pathLayer = L.polyline(latlngs, { color: 'red', weight: 5 }).addTo(map);
+        map.fitBounds(pathLayer.getBounds().pad(0.1));
+      }
+      if (Array.isArray(pumps)) {
+        pumps.forEach((p, idx) => {
+          const i = p.index;
+          if (i != null && i >= 0 && i < latlngs.length) {
+            const [lat, lon] = latlngs[i];
+            const marker = L.marker([lat, lon]).bindPopup(
+              `<b>Midline Pump #${idx+1}</b><br>Distance: ${p.distanceFt.toFixed(0)} ft<br>` +
+              `Inlet: ${p.pressureBefore.toFixed(1)} PSI<br>` +
+              `Discharge: ${p.discharge.toFixed(1)} PSI`
+            );
+            pumpLayer.addLayer(marker);
+          }
+        });
+      }
+    }
+
+    function renderChart(distances, pressures, minSuction) {
+      if (chartInstance) { 
+        chartInstance.destroy(); 
+        chartInstance = null; 
+      }
+      
+      // Ensure we have valid data arrays
+      if (!Array.isArray(distances) || !Array.isArray(pressures) || distances.length === 0 || pressures.length === 0) {
+        console.warn('Invalid chart data:', { distances, pressures });
+        return;
+      }
+      
+      // Ensure arrays are same length
+      const minLength = Math.min(distances.length, pressures.length);
+      const chartDistances = distances.slice(0, minLength);
+      const chartPressures = pressures.slice(0, minLength);
+      
+      // Create labels and min suction line
+      const labels = chartDistances.map(d => Number(d).toFixed(0));
+      const minSuctionLine = new Array(chartDistances.length).fill(Number(minSuction));
+      
+      console.log('Chart data:', { 
+        labels: labels.length, 
+        pressures: chartPressures.length, 
+        minSuction: minSuctionLine.length 
+      });
+      
+      chartInstance = new Chart(chartCanvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Pressure (PSI)',
+              data: chartPressures,
+              borderColor: '#0b5fff',
+              backgroundColor: 'rgba(11,95,255,0.10)',
+              pointRadius: 1.5,
+              tension: 0,
+              fill: false
+            },
+            {
+              label: 'Min Inlet (PSI)',
+              data: minSuctionLine,
+              borderColor: '#ffc107',
+              borderDash: [6,6],
+              pointRadius: 0,
+              tension: 0,
+              fill: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            intersect: false,
+            mode: 'index'
+          },
+          scales: {
+            x: { 
+              title: { display: true, text: 'Distance (ft)' },
+              type: 'category'
+            },
+            y: { 
+              title: { display: true, text: 'Pressure (PSI)' }, 
+              beginAtZero: true 
+            }
+          },
+          plugins: {
+            legend: {
+              display: true
+            }
+          }
+        }
+      });
+    }
+
+    async function readKmlOrKmz(file) {
+      const name = (file?.name || '').toLowerCase();
+      if (name.endsWith('.kml')) {
+        const text = await file.text();
+        return text;
+      } else if (name.endsWith('.kmz')) {
+        // Placeholder: need JSZip or similar. For now, show error to user.
+        throw new Error('KMZ upload not supported in-browser without a zip library. Please provide a .kml file.');
+      } else {
+        throw new Error('Unsupported file type. Upload a .kml or .kmz file.');
+      }
+    }
+
+    function collectWarningsInto(list, msg) {
+      list.push(msg);
+    }
+
+    function determinePsiLossPer100(flowBpm, hoseIn, lossMethod, manualVal, warnings) {
+      let usedPsiLossPer100 = 0;
+      if (lossMethod === 'manual') {
+        if (!(manualVal >= 0)) {
+          collectWarningsInto(warnings, 'Manual PSI loss per 100 ft must be >= 0.');
+          usedPsiLossPer100 = 0;
+        } else {
+          usedPsiLossPer100 = manualVal;
+        }
+      } else {
+        const gpm = bpmToGpm(flowBpm);
+        const headLoss12 = lookupHeadLoss12in(gpm);
+        if (headLoss12 == null) {
+          collectWarningsInto(warnings, 'Flow is outside the 12" lookup table range; cannot interpolate.');
+          usedPsiLossPer100 = 0;
+        } else {
+          const scaledHeadLoss = scaleHeadLossByDiameter(headLoss12, hoseIn);
+          usedPsiLossPer100 = headLossFtToPsi(scaledHeadLoss);
+        }
+      }
+      return usedPsiLossPer100;
+    }
+
+    function renderResults(totalFt, usedPsiLossPer100, finalPressure, reqOutlet, pumpCount, warnings, distances, pressures, minSuction) {
+      elResults.style.display = 'block';
+      elOutDist.textContent = totalFt.toFixed(1);
+      elOutUsedLoss.textContent = usedPsiLossPer100.toFixed(4) + ' PSI/100ft';
+      elOutFinalPsi.textContent = finalPressure.toFixed(1);
+      // Ensure we only count midline pumps, not the source pump (source is not included in auto.pumps)
+      const midlineCount = Math.max(0, Number(pumpCount) || 0);
+      elOutPumpCount.textContent = String(midlineCount);
+      const met = finalPressure >= reqOutlet;
+      elOutOutletMet.innerHTML = met
+        ? '<span class="badge good">Yes</span>'
+        : '<span class="badge bad">No</span>';
+
+      if (warnings.length) {
+        elWarningsWrap.style.display = 'block';
+        elWarningsList.innerHTML = '';
+        warnings.forEach(w => {
+          const li = document.createElement('li');
+          li.textContent = w;
+          elWarningsList.appendChild(li);
+        });
+      } else {
+        elWarningsWrap.style.display = 'none';
+        elWarningsList.innerHTML = '';
+      }
+
+      elChartSection.style.display = 'block';
+      renderChart(distances, pressures, minSuction);
+    }
+
+    async function runCalc() {
+      const flowBpm = Number(elFlowBpm.value);
+      const hoseIn = Number(elHoseSize.value);
+      const sourcePsi = Number(elSourcePsi.value);
+      const midlinePsi = Number(elMidlinePsi.value);
+      const minSuction = Number(elMinSuction.value);
+      const maxHose = Number(elMaxHose.value);
+      const reqOutlet = Number(elReqOutlet.value);
+      const lossMethod = currentLossMethod();
+      const manualPsi100 = Number(elManualPsi100.value);
+      const pathDir = currentPathDir();
+
+      const warnings = [];
+      if (!(flowBpm >= 0)) warnings.push('Flow rate (BPM) must be >= 0.');
+      if (!(sourcePsi > 0)) warnings.push('Source discharge PSI must be > 0.');
+      if (!(maxHose > 0)) warnings.push('Max allowable hose PSI must be > 0.');
+      if (sourcePsi > maxHose) warnings.push(`Source discharge (${sourcePsi.toFixed(1)} PSI) exceeds hose max (${maxHose.toFixed(1)} PSI).`);
+
+      // Determine friction loss
+      const usedPsiLossPer100 = determinePsiLossPer100(flowBpm, hoseIn, lossMethod, manualPsi100, warnings);
+
+      // Path handling
+      let latlngs = [];
+      let usingKml = false;
+      const file = elKmlFile.files && elKmlFile.files[0] ? elKmlFile.files[0] : null;
+      if (file) {
+        usingKml = true;
+        let kmlText = '';
+        try {
+          kmlText = await readKmlOrKmz(file);
+        } catch (e) {
+          warnings.push(`KML/KMZ error: ${e.message}`);
+        }
+        if (kmlText) {
+          const parsed = parseKmlLineStringToLatLngs(kmlText);
+          if (!parsed.length) warnings.push('No LineString coordinates found in KML.');
+          latlngs = parsed;
+        }
+      }
+
+      // If no KML path provided, block calculation and prompt user
+      if (!latlngs.length) {
+        warnings.push('Please upload a KML or KMZ file containing a LineString path to proceed.');
+        elMapSection.style.display = 'none';
+        // Show warnings only
+        elResults.style.display = 'block';
+        elOutDist.textContent = '—';
+        elOutUsedLoss.textContent = usedPsiLossPer100 ? (usedPsiLossPer100.toFixed(4) + ' PSI/100ft') : '—';
+        elOutFinalPsi.textContent = '—';
+        elOutPumpCount.textContent = '—';
+        elOutOutletMet.innerHTML = '<span class="badge bad">No</span>';
+        elWarningsWrap.style.display = 'block';
+        elWarningsList.innerHTML = '<li>Upload a valid KML/KMZ path first.</li>';
+        return;
+      }
+
+      // If we have KML path, optionally reverse
+      if (pathDir === 'dest_to_source') latlngs.reverse();
+
+      // Downsample if needed
+      const dsLatLngs = downsampleLatLngs(latlngs, MAX_POINTS);
+
+      // Elevations
+      let elevationsM = [];
+      try {
+        elevationsM = await fetchElevationsOpenTopo(dsLatLngs);
+      } catch (e) {
+        warnings.push(`Elevation fetch failed: ${e.message}. Proceeding with flat elevation.`);
+        elevationsM = dsLatLngs.map(() => 0);
+      }
+      const elevationsFt = elevationsM.map(m => m * 3.28084);
+
+      // Distances
+      const distFt = cumulativeDistancesFt(dsLatLngs);
+      const totalFt = distFt[distFt.length - 1] || 0;
+
+      // Auto midline pump placement
+      const auto = placeMidlinePumps(distFt, elevationsFt, sourcePsi, midlinePsi, minSuction, usedPsiLossPer100);
+
+      // Path status line
+      updatePathStatus(dsLatLngs, distFt[distFt.length - 1] || 0);
+
+      // Build final pressure profile with placed pumps
+      const prof = buildProfileWithPumps(distFt, elevationsFt, sourcePsi, auto.pumps, usedPsiLossPer100);
+      
+      console.log('Profile data:', prof); // Debug logging
+      
+      const distancesForChart = prof.distances || [];
+      const pressures = prof.pressures || [];
+
+      // Checks
+      if (auto.finalPressure < reqOutlet) {
+        warnings.push(`Final outlet pressure (${auto.finalPressure.toFixed(1)} PSI) is below required minimum (${reqOutlet.toFixed(1)} PSI).`);
+      }
+      if (pressures.some(p => p > maxHose)) {
+        warnings.push('Calculated pressure exceeds the maximum hose rating somewhere along the line.');
+      }
+
+      // Map render
+      renderPathOnMap(dsLatLngs, auto.pumps);
+
+      // Results + chart
+      renderResults(totalFt, usedPsiLossPer100, auto.finalPressure, reqOutlet, auto.pumps.length, warnings, distancesForChart, pressures, minSuction);
+    }
+
+    document.getElementById('run-calc').addEventListener('click', runCalc);
+  </script>
+</body>
+</html>

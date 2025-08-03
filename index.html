@@ -17,8 +17,41 @@
 <body>
     <div id="map"></div>
 
+    <!-- Welcome Modal -->
+    <div id="welcome-modal" class="welcome-modal" aria-hidden="true" role="dialog" aria-labelledby="welcome-title" aria-modal="true">
+        <div class="welcome-backdrop" data-close="backdrop"></div>
+        <div class="welcome-dialog" role="document">
+            <button class="welcome-close" type="button" aria-label="Close welcome dialog" data-close="button">×</button>
+            <h2 id="welcome-title">Welcome to JB's Frac Pond Survey Map</h2>
+            <p>
+                This interactive map presents bathymetry data for selected ponds and waterbodies
+                surveyed to estimate storage volumes available for hydraulic fracturing operations.
+                This data is accurate as of the survey dates shown, and is intended for reference only.
+                More ponds will be added over time. The highlighted borders represent the shoreline 
+                boundaries on the date of the surveys. 3D models of the ponds are available.
+            </p>
+            <p>
+                Tap or click any highlighted pond to view maximum depth, stage–volume tables,
+                surface area, and additional details.
+            </p>
+            <p id="contact-line">
+                Questions? Or if you would like me to survey a pond for you in this area, please contact
+                <a id="obf-email" href="#" rel="nofollow noopener noreferrer"
+                   data-u="bmFtZQ==" data-d="ZXhhbXBsZQ==" data-t="Y29t"
+                   aria-label="email address (revealed on click)">[email&nbsp;protected]</a>.
+            </p>
+            <button class="welcome-action" type="button" data-close="primary">Explore Map</button>
+        </div>
+    </div>
+
     <!-- Core Libraries Only -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="js/main.js"></script>
+    <footer class="site-footer" role="contentinfo">
+      <nav class="footer-nav" aria-label="Footer">
+        <a class="footer-link" href="index.html">Home</a>
+        <a class="footer-link" href="layflat-modeler.html">Layflat Hydraulic Modeler</a>
+      </nav>
+    </footer>
 </body>
 </html>

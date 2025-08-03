@@ -3,6 +3,113 @@ const map = L.map('map', {
   zoomControl: true
 }).setView([35.5, -98.5], 7);
 
+// --- WELCOME MODAL LOGIC ---
+(function initWelcomeModal() {
+  const modal = document.getElementById('welcome-modal');
+  if (!modal) return;
+
+  const backdrop = modal.querySelector('.welcome-backdrop');
+  const closeBtn = modal.querySelector('.welcome-close');
+  const primaryBtn = modal.querySelector('.welcome-action');
+
+  // --- Email obfuscation in the welcome box ---
+  // Decode parts from data attributes only on user interaction to avoid exposing the
+  // full email in static HTML or immediately in the DOM textContent.
+  (function obfuscateEmail() {
+    const anchor = document.getElementById('obf-email');
+    if (!anchor) return;
+
+    function decode(b64) {
+      try { return atob(b64); } catch (_) { return ''; }
+    }
+
+    function revealEmail() {
+      // Build the email lazily at interaction time
+      const user = decode(anchor.getAttribute('data-u') || '');
+      const domain = decode(anchor.getAttribute('data-d') || '');
+      const tld = decode(anchor.getAttribute('data-t') || '');
+      const email = [user, domain, tld].every(Boolean) ? `${user}@${domain}.${tld}` : '';
+
+      if (email) {
+        // Replace link with plain text to avoid triggering mail clients
+        anchor.replaceWith(document.createTextNode(email));
+      }
+    }
+
+    function clickHandler(e) {
+      // Prevent navigation and just reveal the address
+      e.preventDefault();
+      revealEmail();
+    }
+
+    function keyHandler(e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        revealEmail();
+      }
+    }
+
+    // Ensure we never navigate; keep href as "#" and add handlers
+    anchor.setAttribute('href', '#');
+    anchor.addEventListener('click', clickHandler);
+    anchor.addEventListener('keydown', keyHandler);
+  })();
+
+  // Disable scroll-zoom while dialog is visible to avoid gesture conflicts on mobile
+  function disableMapInteractions() {
+    try {
+      map.scrollWheelZoom.disable();
+      map.dragging.disable();
+      map.doubleClickZoom.disable();
+      map.boxZoom.disable();
+      map.keyboard.disable();
+      if (map.tap) map.tap.disable();
+    } catch (_) {}
+  }
+  function enableMapInteractions() {
+    try {
+      map.scrollWheelZoom.enable();
+      map.dragging.enable();
+      map.doubleClickZoom.enable();
+      map.boxZoom.enable();
+      map.keyboard.enable();
+      if (map.tap) map.tap.enable();
+    } catch (_) {}
+  }
+
+  function openModal() {
+    modal.setAttribute('aria-hidden', 'false');
+    // Focus the primary action for accessibility after animation tick
+    setTimeout(() => {
+      if (primaryBtn) primaryBtn.focus();
+    }, 0);
+    disableMapInteractions();
+  }
+
+  function closeModal() {
+    modal.setAttribute('aria-hidden', 'true');
+    enableMapInteractions();
+  }
+
+  // Wire events
+  [closeBtn, primaryBtn].forEach(btn => {
+    if (btn) btn.addEventListener('click', closeModal);
+  });
+  if (backdrop) {
+    backdrop.addEventListener('click', closeModal);
+  }
+  document.addEventListener('keydown', (e) => {
+    if (modal.getAttribute('aria-hidden') === 'false' && e.key === 'Escape') {
+      e.preventDefault();
+      closeModal();
+    }
+  });
+
+  // Show on initial visit and on hard refresh (no persistence requested)
+  // Defer opening until next tick to ensure DOM/styles are applied
+  setTimeout(openModal, 0);
+})();
+
 // --- 2. DEFINE BASEMAP LAYERS ---
 const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
