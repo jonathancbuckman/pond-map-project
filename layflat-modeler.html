@@ -870,32 +870,29 @@
     // Build pressure profile including placed pumps (clear boost visualization)
     // Returns an object with distances and pressures arrays aligned 1:1 for Chart.js
     function buildProfileWithPumps(distFt, elevFt, sourcePsi, pumps, psiLossPer100) {
-      // Build pressure profile and clamp instantaneous pressures to be no lower than the configured minimum suction.
-      // This keeps the plotted inlet at each pump consistent with displayed inlet PSI and avoids sub-zero dips.
+      // Build pressure profile for plotting. Do NOT clamp the plotted pressures;
+      // only clamp the displayed inlet values at pump markers elsewhere.
       const lossPerFt = psiLossPer100 / 100.0;
       const outDistances = [];
       const outPressures = [];
       let p = sourcePsi;
       let pumpIdx = 0;
 
-      // Helper: clamp for plotting (do not affect simulation logic outside this function)
-      const minPlotPsi = Number(document.getElementById('min-suction-psi')?.value) || 0;
-
-      // Seed first point
+      // Seed first point (true simulated pressure)
       outDistances.push(distFt[0]);
-      outPressures.push(Math.max(p, minPlotPsi));
+      outPressures.push(p);
 
       for (let i = 1; i < distFt.length; i++) {
         // Check if a pump exists exactly at index i
         if (pumpIdx < pumps.length && pumps[pumpIdx].index === i) {
-          // Add point just before pump (current pressure at this location)
+          // Add point just before pump (true pressure at this location)
           outDistances.push(distFt[i]);
-          outPressures.push(Math.max(p, minPlotPsi));
-          
+          outPressures.push(p);
+
           // Add point just after pump (boosted pressure at same location)
           p = pumps[pumpIdx].discharge;
           outDistances.push(distFt[i]);
-          outPressures.push(Math.max(p, minPlotPsi));
+          outPressures.push(p);
           pumpIdx++;
         }
 
@@ -906,11 +903,11 @@
         const frictionPsi = lossPerFt * segLen;
         p = p + elevDeltaPsi - frictionPsi;
 
-        // Add end point of segment
+        // Add end point of segment (true pressure)
         outDistances.push(distFt[i]);
-        outPressures.push(Math.max(p, minPlotPsi));
+        outPressures.push(p);
       }
-      
+
       return { distances: outDistances, pressures: outPressures };
     }
 
