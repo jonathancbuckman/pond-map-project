@@ -326,6 +326,15 @@
           <label for="req-outlet-psi">Desired Min Outlet Pressure (PSI)</label>
           <input id="req-outlet-psi" type="number" step="1" min="0" value="20">
         </div>
+
+        <div class="field">
+          <label for="hose-runs">Hose Runs</label>
+          <select id="hose-runs">
+            <option value="1" selected>Single</option>
+            <option value="2">Dual (parallel)</option>
+          </select>
+          <div class="inline-help">Dual run uses two parallel hoses. Friction loss is reduced accordingly for the same total flow.</div>
+        </div>
       </div>
 
       <div class="section-card" style="margin-top:12px;">
@@ -730,6 +739,7 @@
     const elMidlinePsi = document.getElementById('midline-psi');
     const elMaxHose = document.getElementById('max-hose-psi');
     const elReqOutlet = document.getElementById('req-outlet-psi');
+    const elHoseRuns = document.getElementById('hose-runs');
 
     const lossRadios = document.querySelectorAll('input[name="loss-method"]');
     const elManualWrap = document.getElementById('manual-loss-wrap');
@@ -1290,24 +1300,34 @@
       list.push(msg);
     }
 
-    function determinePsiLossPer100(flowBpm, hoseIn, lossMethod, manualVal, warnings) {
+    function determinePsiLossPer100(flowBpm, hoseIn, lossMethod, manualVal, warnings, runsCount) {
+      const runs = Math.max(1, Number(runsCount) || 1);
       let usedPsiLossPer100 = 0;
+
       if (lossMethod === 'manual') {
         if (!(manualVal >= 0)) {
           collectWarningsInto(warnings, 'Manual PSI loss per 100 ft must be >= 0.');
           usedPsiLossPer100 = 0;
         } else {
-          usedPsiLossPer100 = manualVal;
+          // For parallel identical hoses carrying the same total flow, head loss halves for 2 runs.
+          usedPsiLossPer100 = manualVal / runs;
         }
       } else {
-        const gpm = bpmToGpm(flowBpm);
-        const headLoss12 = lookupHeadLoss12in(gpm);
-        if (headLoss12 == null) {
+        // Lookup mode: compute loss at per-hose flow when using multiple runs,
+        // then combine in parallel which divides head loss by number of runs.
+        // Total flow is split evenly across runs.
+        const totalGpm = bpmToGpm(flowBpm);
+        const perHoseGpm = totalGpm / runs;
+
+        const headLoss12_perHose = lookupHeadLoss12in(perHoseGpm);
+        if (headLoss12_perHose == null) {
           collectWarningsInto(warnings, 'Flow is outside the 12" lookup table range; cannot interpolate.');
           usedPsiLossPer100 = 0;
         } else {
-          const scaledHeadLoss = scaleHeadLossByDiameter(headLoss12, hoseIn);
-          usedPsiLossPer100 = headLossFtToPsi(scaledHeadLoss);
+          const scaledHeadLoss_perHose = scaleHeadLossByDiameter(headLoss12_perHose, hoseIn);
+          const psiPerHose = headLossFtToPsi(scaledHeadLoss_perHose);
+          // Parallel identical hoses reduce head loss by factor of runs
+          usedPsiLossPer100 = psiPerHose / runs;
         }
       }
       return usedPsiLossPer100;
@@ -1383,6 +1403,7 @@
       const reqOutlet = Number(elReqOutlet.value);
       const lossMethod = currentLossMethod();
       const manualPsi100 = Number(elManualPsi100.value);
+      const runsCount = Math.max(1, Number(elHoseRuns && elHoseRuns.value ? elHoseRuns.value : 1));
       const pathDir = currentPathDir();
       const placementStrategy = 'manual';
 
@@ -1393,7 +1414,7 @@
       if (sourcePsi > maxHose) warnings.push(`Source discharge (${sourcePsi.toFixed(1)} PSI) exceeds hose max (${maxHose.toFixed(1)} PSI).`);
 
       // Determine friction loss
-      const usedPsiLossPer100 = determinePsiLossPer100(flowBpm, hoseIn, lossMethod, manualPsi100, warnings);
+      const usedPsiLossPer100 = determinePsiLossPer100(flowBpm, hoseIn, lossMethod, manualPsi100, warnings, runsCount);
 
       // Path handling
       let latlngs = [];
@@ -1747,6 +1768,7 @@
                   <div class="kv"><div class="k">Desired Rate</div><div class="v">${fmt(state.flowBpm,0)} BPM</div></div>
                   <div class="kv"><div class="k">Distance</div><div class="v">${fmt(totalMi,2)} miles</div></div>
                   <div class="kv"><div class="k">Hose Diameter</div><div class="v">${fmt(state.hoseIn,0)} in</div></div>
+                  <div class="kv"><div class="k">Hose Runs</div><div class="v">${state.hoseRuns ? (state.hoseRuns === 2 ? 'Dual (parallel)' : 'Single') : 'Single'}</div></div>
                   <div class="kv"><div class="k">Friction Loss</div><div class="v">${fmt(usedLoss,4)} PSI/100 ft</div></div>
                   <div class="kv"><div class="k">Min Inlet (Suction)</div><div class="v">${fmt(state.minSuction,1)} PSI</div></div>
                   <div class="kv"><div class="k">Desired Min Outlet</div><div class="v">${fmt(state.reqOutlet,1)} PSI</div></div>
@@ -1871,7 +1893,7 @@
     // Whenever a user changes inputs that affect hydraulics, just clear derived UI (no auto run)
     const hydraulicInputs = [
       elFlowBpm, elHoseSize, elSourcePsi, elMidlinePsi,
-      elMaxHose, elReqOutlet, elManualPsi100, elPlacementStrategy
+      elMaxHose, elReqOutlet, elManualPsi100, elPlacementStrategy, elHoseRuns
     ];
     hydraulicInputs.forEach(inp => {
       if (!inp) return;
