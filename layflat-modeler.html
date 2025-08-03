@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Layflat Hydraulic Modeler</title>
   <link rel="stylesheet" href="css/style.css"/>
+  <!-- Ensure local font paths to avoid 404s -->
+  <link rel="preload" href="fonts/isocpeur.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
   <link rel="manifest" href="/site.webmanifest">
   <meta name="msapplication-TileColor" content="#da532c">
@@ -1201,6 +1203,7 @@
 
       // Store the latest run dataset on window for report generation
       // Also capture a satellite-map snapshot (base64 PNG) if possible.
+      // NOTE: Do NOT reference a 'mapPng' variable outside the async; we assign into state later.
       async function captureMapSnapshot() {
         try {
           if (!mapInstance || !pathLayer) return null;
@@ -1274,16 +1277,37 @@
         }
       }
  
+      // Build base state immediately (without map image yet)
+      window.__modelerLastRun = {
+        flowBpm: Number(elFlowBpm.value),
+        hoseIn: Number(elHoseSize.value),
+        sourcePsi: Number(elSourcePsi.value),
+        midlinePsi: Number(elMidlinePsi.value),
+        minSuction: Number(elMinSuction.value),
+        maxHose: Number(elMaxHose.value),
+        reqOutlet: Number(elReqOutlet.value),
+        lossMethod: currentLossMethod(),
+        manualPsi100: Number(elManualPsi100.value),
+        placementStrategy: (elPlacementStrategy && elPlacementStrategy.value) ? elPlacementStrategy.value : 'reactive',
+        pathDir: currentPathDir(),
+        mapSnapshotPng: null, // filled asynchronously below
+        results: {
+          totalFt: Number(totalFt),
+          usedPsiLossPer100: Number(usedPsiLossPer100),
+          finalPressure: Number(finalPressure),
+          pumpCount: Number(pumpCount),
+          warnings: Array.isArray(warnings) ? [...warnings] : []
+        },
+        profile: { distances: Array.isArray(distances) ? distances.slice() : [], pressures: Array.isArray(pressures) ? pressures.slice() : [] },
+        pumpsSummary: Array.isArray(window.__lastPumps) ? window.__lastPumps.map(p => ({...p})) : []
+      };
+ 
       // Defer snapshot to avoid 'await' in non-async context; fill after state is created
       (function queueSnapshot() {
-        captureMapSnapshot().then(png => {
-          if (png) {
-            if (window.__modelerLastRun) window.__modelerLastRun.mapSnapshotPng = png;
-          }
-        }).catch(()=>{});
+        captureMapSnapshot().then(function(png){
+          if (window.__modelerLastRun) window.__modelerLastRun.mapSnapshotPng = png || null;
+        }).catch(function(){});
       })();
- 
-      window.__modelerLastRun = {
         flowBpm: Number(elFlowBpm.value),
         hoseIn: Number(elHoseSize.value),
         sourcePsi: Number(elSourcePsi.value),
