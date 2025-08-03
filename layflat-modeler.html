@@ -271,6 +271,16 @@
           <input id="req-outlet-psi" type="number" step="1" min="0" value="20">
           <div class="inline-help">Target pressure at the destination end of the path.</div>
         </div>
+
+        <div class="field">
+          <label for="placement-strategy">Pump Placement Strategy</label>
+          <select id="placement-strategy">
+            <option value="reactive" selected>Reactive (default)</option>
+            <option value="optimized">Optimized Look-ahead</option>
+            <option value="minimized">Minimum Pump Count</option>
+          </select>
+          <div class="inline-help">Choose algorithm for automatic midline pump placement.</div>
+        </div>
       </div>
 
       <div class="section-card" style="margin-top:12px;">
@@ -579,23 +589,17 @@
       return dists;
     }
 
-    // Automatic midline pump placement (improved look-ahead):
-    // Proactively place a pump at index i when looking ahead shows the pressure
-    // would drop below minSuction before or at i+k within a small horizon.
+    // Automatic midline pump placement (reactive baseline)
     function placeMidlinePumps(distFt, elevFt, sourcePsi, midlinePsi, minSuctionPsi, psiLossPer100) {
       const lossPerFt = psiLossPer100 / 100.0;
-      const pumps = []; // {index, distanceFt, pressureBefore, discharge}
+      const pumps = [];
       let currentPressure = sourcePsi;
-
-      // How far ahead to look (in segments). Tunable small horizon to keep runtime low.
       const HORIZON = 10;
 
       for (let i = 0; i < distFt.length - 1; i++) {
-        // 1) Look ahead from current position to anticipate future drop
         let lookAheadPressure = currentPressure;
         let needsPump = false;
 
-        // Look ahead starting from NEXT segment (i+1)
         for (let j = i + 1; j < Math.min(i + 1 + HORIZON, distFt.length); j++) {
           const segLenLA = distFt[j] - distFt[j - 1];
           const dhFtLA = elevFt[j] - elevFt[j - 1];
@@ -603,36 +607,209 @@
           const frictionPsiLA = lossPerFt * segLenLA;
           lookAheadPressure = lookAheadPressure + elevDeltaPsiLA - frictionPsiLA;
 
-          if (lookAheadPressure < minSuctionPsi) {
-            needsPump = true;
-            break;
-          }
-          // Optional early-exit if comfortable margin
-          if (lookAheadPressure > (minSuctionPsi + 20)) {
-            break;
-          }
+          if (lookAheadPressure < minSuctionPsi) { needsPump = true; break; }
+          if (lookAheadPressure > (minSuctionPsi + 20)) { break; }
         }
 
-        // 2) If needed, place pump right here (except index 0 unless absolutely required)
         if (needsPump && (i > 0 || currentPressure < minSuctionPsi)) {
-          pumps.push({
-            index: i,
-            distanceFt: distFt[i],
-            pressureBefore: currentPressure,
-            discharge: midlinePsi
-          });
-          currentPressure = midlinePsi; // boost before traversing the next segment
+          pumps.push({ index: i, distanceFt: distFt[i], pressureBefore: currentPressure, discharge: midlinePsi });
+          currentPressure = midlinePsi;
         }
 
-        // 3) Traverse the current segment i -> i+1 using currentPressure (possibly boosted)
         const segLen = distFt[i + 1] - distFt[i];
-        const dhFt = elevFt[i + 1] - elevFt[i]; // positive = uphill
+        const dhFt = elevFt[i + 1] - elevFt[i];
         const elevDeltaPsi = -dhFt * PSI_PER_FOOT_WATER;
         const frictionPsi = lossPerFt * segLen;
         currentPressure = currentPressure + elevDeltaPsi - frictionPsi;
       }
 
       return { pumps, finalPressure: currentPressure };
+    }
+
+    // Improved automatic midline pump placement algorithm (optimization-based)
+    function placeMidlinePumpsOptimized(distFt, elevFt, sourcePsi, midlinePsi, minSuctionPsi, psiLossPer100) {
+      const lossPerFt = psiLossPer100 / 100.0;
+      const pumps = [];
+
+      function calculateOptimalDischarge(startIdx, distFt, elevFt, midlinePsi) {
+        const lookAheadDist = 15840; // 3 miles
+        const currentDist = distFt[startIdx];
+        let maxElevationAhead = elevFt[startIdx];
+
+        for (let i = startIdx; i < distFt.length && (distFt[i] - currentDist) < lookAheadDist; i++) {
+          maxElevationAhead = Math.max(maxElevationAhead, elevFt[i]);
+        }
+
+        const elevationBoostNeeded = (maxElevationAhead - elevFt[startIdx]) * PSI_PER_FOOT_WATER;
+        const baseDischarge = midlinePsi;
+        const dynamicDischarge = Math.max(baseDischarge, baseDischarge + elevationBoostNeeded + 10);
+        return Math.min(dynamicDischarge, 120); // cap
+      }
+
+      function findOptimalPumpDistance(startIdx, startPressure, distFt, elevFt, minSuctionPsi, lossPerFt) {
+        const EXTENDED_HORIZON = Math.min(200, distFt.length - startIdx - 1);
+        const COMFORT_MARGIN = 5;
+
+        let pressure = startPressure;
+        let bestPlacement = null;
+        let lowestPressure = startPressure;
+        let lowestPressureIdx = startIdx;
+
+        for (let i = startIdx + 1; i < Math.min(startIdx + EXTENDED_HORIZON, distFt.length); i++) {
+          const segLen = distFt[i] - distFt[i - 1];
+          const dhFt = elevFt[i] - elevFt[i - 1];
+          const elevDeltaPsi = -dhFt * PSI_PER_FOOT_WATER;
+          const frictionPsi = lossPerFt * segLen;
+
+          pressure = pressure + elevDeltaPsi - frictionPsi;
+
+          if (pressure < lowestPressure) { lowestPressure = pressure; lowestPressureIdx = i; }
+
+          if (pressure < (minSuctionPsi + COMFORT_MARGIN)) {
+            const slopeHere = i > 0 ? (elevFt[i] - elevFt[i-1]) / (distFt[i] - distFt[i-1]) : 0;
+            const slopeAhead = i < elevFt.length - 1 ? (elevFt[i+1] - elevFt[i]) / (distFt[i+1] - distFt[i]) : 0;
+            const locationScore = -Math.abs(slopeHere) - Math.max(0, slopeAhead * 100);
+
+            if (!bestPlacement || locationScore > bestPlacement.score) {
+              bestPlacement = { index: i, pressure: pressure, score: locationScore, distance: distFt[i] };
+            }
+          }
+
+          if (pressure < minSuctionPsi) { break; }
+        }
+
+        return bestPlacement || { index: lowestPressureIdx, pressure: lowestPressure, distance: distFt[lowestPressureIdx] };
+      }
+
+      let currentPressure = sourcePsi;
+      let currentIdx = 0;
+
+      // safety to avoid infinite loops
+      let guard = 0, GUARD_MAX = distFt.length * 3;
+
+      while (currentIdx < distFt.length - 1 && guard++ < GUARD_MAX) {
+        const placement = findOptimalPumpDistance(currentIdx, currentPressure, distFt, elevFt, minSuctionPsi, lossPerFt);
+
+        if (placement.index <= currentIdx + 1) {
+          const discharge = calculateOptimalDischarge(Math.min(currentIdx + 1, distFt.length - 1), distFt, elevFt, midlinePsi);
+          pumps.push({ index: Math.min(currentIdx + 1, distFt.length - 1), distanceFt: distFt[Math.min(currentIdx + 1, distFt.length - 1)], pressureBefore: currentPressure, discharge });
+          currentPressure = discharge;
+          currentIdx = Math.min(currentIdx + 1, distFt.length - 1);
+        } else if (placement.pressure < minSuctionPsi + 2) {
+          const discharge = calculateOptimalDischarge(placement.index, distFt, elevFt, midlinePsi);
+
+          let pressureAtPump = currentPressure;
+          for (let i = currentIdx + 1; i <= placement.index; i++) {
+            const segLen = distFt[i] - distFt[i - 1];
+            const dhFt = elevFt[i] - elevFt[i - 1];
+            const elevDeltaPsi = -dhFt * PSI_PER_FOOT_WATER;
+            const frictionPsi = lossPerFt * segLen;
+            pressureAtPump = pressureAtPump + elevDeltaPsi - frictionPsi;
+          }
+
+          pumps.push({ index: placement.index, distanceFt: placement.distance, pressureBefore: pressureAtPump, discharge });
+          currentPressure = discharge;
+          currentIdx = placement.index;
+        } else {
+          currentIdx = placement.index;
+          currentPressure = placement.pressure;
+        }
+      }
+
+      let finalPressure = currentPressure;
+      for (let i = currentIdx + 1; i < distFt.length; i++) {
+        const segLen = distFt[i] - distFt[i - 1];
+        const dhFt = elevFt[i] - elevFt[i - 1];
+        const elevDeltaPsi = -dhFt * PSI_PER_FOOT_WATER;
+        const frictionPsi = lossPerFt * segLen;
+        finalPressure = finalPressure + elevDeltaPsi - frictionPsi;
+      }
+
+      return { pumps, finalPressure };
+    }
+
+    // Alternative approach: Minimum pump count optimization
+    function placeMidlinePumpsMinimized(distFt, elevFt, sourcePsi, midlinePsi, minSuctionPsi, psiLossPer100) {
+      const lossPerFt = psiLossPer100 / 100.0;
+
+      function canReachEnd(startIdx, startPressure, targetIdx) {
+        let pressure = startPressure;
+        for (let i = startIdx + 1; i <= targetIdx; i++) {
+          const segLen = distFt[i] - distFt[i - 1];
+          const dhFt = elevFt[i] - elevFt[i - 1];
+          const elevDeltaPsi = -dhFt * PSI_PER_FOOT_WATER;
+          const frictionPsi = lossPerFt * segLen;
+          pressure = pressure + elevDeltaPsi - frictionPsi;
+          if (pressure < minSuctionPsi) {
+            return { canReach: false, failIndex: i, pressure: pressure };
+          }
+        }
+        return { canReach: true, finalPressure: pressure };
+      }
+
+      const professionalDischarge = Math.min(120, midlinePsi * 1.1);
+
+      const pumps = [];
+      let currentIdx = 0;
+      let currentPressure = sourcePsi;
+
+      let guard = 0, GUARD_MAX = distFt.length * 3;
+
+      while (currentIdx < distFt.length - 1 && guard++ < GUARD_MAX) {
+        const result = canReachEnd(currentIdx, currentPressure, distFt.length - 1);
+
+        if (result.canReach) {
+          return { pumps, finalPressure: result.finalPressure };
+        }
+
+        let pumpIndex = Math.max(1, result.failIndex - 1);
+
+        const searchStart = Math.max(currentIdx + 1, pumpIndex - 10);
+        const searchEnd = Math.min(distFt.length - 1, pumpIndex + 5);
+
+        let bestPumpIndex = pumpIndex;
+        let bestScore = -Infinity;
+
+        for (let testIdx = searchStart; testIdx <= searchEnd; testIdx++) {
+          const testResult = canReachEnd(currentIdx, currentPressure, testIdx);
+          if (testResult.canReach && testResult.finalPressure >= minSuctionPsi) {
+            const distanceCovered = distFt[testIdx] - distFt[currentIdx];
+            const pressureMargin = testResult.finalPressure - minSuctionPsi;
+            const score = distanceCovered + pressureMargin * 100;
+            if (score > bestScore) { bestScore = score; bestPumpIndex = testIdx; }
+          }
+        }
+
+        let pressureAtPump = currentPressure;
+        for (let i = currentIdx + 1; i <= bestPumpIndex; i++) {
+          const segLen = distFt[i] - distFt[i - 1];
+          const dhFt = elevFt[i] - elevFt[i - 1];
+          const elevDeltaPsi = -dhFt * PSI_PER_FOOT_WATER;
+          const frictionPsi = lossPerFt * segLen;
+          pressureAtPump = pressureAtPump + elevDeltaPsi - frictionPsi;
+        }
+
+        pumps.push({
+          index: bestPumpIndex,
+          distanceFt: distFt[bestPumpIndex],
+          pressureBefore: pressureAtPump,
+          discharge: professionalDischarge
+        });
+
+        currentPressure = professionalDischarge;
+        currentIdx = bestPumpIndex;
+      }
+
+      let finalPressure = currentPressure;
+      for (let i = currentIdx + 1; i < distFt.length; i++) {
+        const segLen = distFt[i] - distFt[i - 1];
+        const dhFt = elevFt[i] - elevFt[i - 1];
+        const elevDeltaPsi = -dhFt * PSI_PER_FOOT_WATER;
+        const frictionPsi = lossPerFt * segLen;
+        finalPressure = finalPressure + elevDeltaPsi - frictionPsi;
+      }
+
+      return { pumps, finalPressure };
     }
 
     // Build pressure profile including placed pumps (clear boost visualization)
@@ -685,6 +862,7 @@
     const elMinSuction = document.getElementById('min-suction-psi');
     const elMaxHose = document.getElementById('max-hose-psi');
     const elReqOutlet = document.getElementById('req-outlet-psi');
+    const elPlacementStrategy = document.getElementById('placement-strategy');
 
     const lossRadios = document.querySelectorAll('input[name="loss-method"]');
     const elManualWrap = document.getElementById('manual-loss-wrap');
@@ -986,6 +1164,7 @@
       const lossMethod = currentLossMethod();
       const manualPsi100 = Number(elManualPsi100.value);
       const pathDir = currentPathDir();
+      const placementStrategy = (elPlacementStrategy?.value) || 'reactive';
 
       const warnings = [];
       if (!(flowBpm >= 0)) warnings.push('Flow rate (BPM) must be >= 0.');
@@ -1051,17 +1230,22 @@
       const distFt = cumulativeDistancesFt(dsLatLngs);
       const totalFt = distFt[distFt.length - 1] || 0;
 
-      // Auto midline pump placement
-      const auto = placeMidlinePumps(distFt, elevationsFt, sourcePsi, midlinePsi, minSuction, usedPsiLossPer100);
+      // Auto midline pump placement (strategy switch)
+      let auto;
+      if (placementStrategy === 'optimized') {
+        auto = placeMidlinePumpsOptimized(distFt, elevationsFt, sourcePsi, midlinePsi, minSuction, usedPsiLossPer100);
+      } else if (placementStrategy === 'minimized') {
+        auto = placeMidlinePumpsMinimized(distFt, elevationsFt, sourcePsi, midlinePsi, minSuction, usedPsiLossPer100);
+      } else {
+        auto = placeMidlinePumps(distFt, elevationsFt, sourcePsi, midlinePsi, minSuction, usedPsiLossPer100);
+      }
 
       // Path status line
       updatePathStatus(dsLatLngs, distFt[distFt.length - 1] || 0);
 
       // Build final pressure profile with placed pumps
       const prof = buildProfileWithPumps(distFt, elevationsFt, sourcePsi, auto.pumps, usedPsiLossPer100);
-      
-      console.log('Profile data:', prof); // Debug logging
-      
+
       const distancesForChart = prof.distances || [];
       const pressures = prof.pressures || [];
 
@@ -1112,7 +1296,7 @@
     // Whenever a user changes inputs that affect hydraulics, schedule an auto re-run
     const hydraulicInputs = [
       elFlowBpm, elHoseSize, elSourcePsi, elMidlinePsi,
-      elMinSuction, elMaxHose, elReqOutlet, elManualPsi100
+      elMinSuction, elMaxHose, elReqOutlet, elManualPsi100, elPlacementStrategy
     ];
     hydraulicInputs.forEach(inp => {
       if (!inp) return;
