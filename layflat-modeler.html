@@ -176,24 +176,32 @@
     <section class="section-card" style="background:#fcfcff;">
       <h3>How to use this tool</h3>
       <p class="inline-help" style="max-width:880px;">
-        This calculator estimates pressure along a layflat hose route and places midline pumps automatically to respect a minimum suction pressure.
-        KML only: upload a .kml file that contains a single simple LineString path. KMZ is not supported.
-        To get started:
+        This calculator estimates pressure along a layflat hose route. You manually place midline booster pumps on the map and adjust their discharge setpoints to shape the pressure profile. KML only: upload a .kml file that contains a single simple LineString path. KMZ is not supported.
       </p>
       <ol class="inline-help" style="max-width:880px; margin-top:6px; padding-left:18px;">
         <li>Create a KML file containing one LineString that follows your hose path on the ground. You can draw this in Google Earth or other GIS tools.</li>
         <li>Upload the KML below. Choose the drawing direction so the path begins at your Source pump and ends at the Destination (or reverse if needed).</li>
         <li>Set your hydraulic inputs (flow, hose diameter, pressure limits). Choose how friction loss is determined (lookup vs manual).</li>
-        <li>Click "Run Calculation". You'll see:
+        <li>Click "Run Calculation". The map will display your path, and “Manual Pumps” mode will be enabled.</li>
+        <li>Place manual midline pumps:
           <ul style="margin:6px 0 0 18px;">
-            <li>Map preview of the path and any automatically placed midline pumps.</li>
-            <li>A pressure profile chart with your minimum suction requirement.</li>
-            <li>A results summary including total path distance, final outlet pressure, and pump count.</li>
+            <li>Click along the red path to add a booster pump at that location.</li>
+            <li>Drag a pump marker to move it along the path.</li>
+            <li>Click a marker to delete it.</li>
+            <li>Edit each pump’s “Discharge PSI” in the Manual Pumps panel; the profile updates immediately.</li>
           </ul>
         </li>
+        <li>Review outputs:
+          <ul style="margin:6px 0 0 18px;">
+            <li>Map preview of your path and manually placed pumps.</li>
+            <li>Pressure profile chart showing the impact of pump placement and discharge settings.</li>
+            <li>Results summary including total distance, used friction loss, final outlet pressure, and pump count.</li>
+          </ul>
+        </li>
+        <li>When satisfied, click “Generate Report” to open a printable summary of inputs, pump list, and the pressure profile.</li>
       </ol>
       <p class="inline-help" style="max-width:880px; margin-top:8px;">
-        Notes: Elevations are sampled from public terrain data and may be approximate.
+        Notes: Elevations are sampled from public terrain data and may be approximate. Suction minimum is not enforced automatically in manual mode; verify realistic inlets when choosing pump locations and setpoints.
       </p>
     </section>
 
@@ -723,7 +731,6 @@
       elHoseSize.value = '16';
       elSourcePsi.value = '100';
       elMidlinePsi.value = '80';
-      elMinSuction.value = '20';
       elMaxHose.value = '150';
       elReqOutlet.value = '20';
       document.querySelector('input[name="loss-method"][value="lookup"]').checked = true;
@@ -927,7 +934,7 @@
 
       // Results and chart: pumpCount from manual, final outlet from profile tail
       const finalPressure = pressures.length ? pressures[pressures.length-1] : 0;
-      renderResults(manualDistFt[manualDistFt.length-1]||0, (window.__lastUsedPsiLossPer100||0), finalPressure, Number(elReqOutlet.value), manualPumps.length, (window.__lastWarnings||[]), distancesForChart, pressures, Number(elMinSuction.value));
+      renderResults(manualDistFt[manualDistFt.length-1]||0, (window.__lastUsedPsiLossPer100||0), finalPressure, Number(elReqOutlet.value), manualPumps.length, (window.__lastWarnings||[]), distancesForChart, pressures, 0);
 
       // Persist last run for report with manual selection
       window.__modelerLastRun = window.__modelerLastRun || {};
@@ -1260,7 +1267,7 @@
         hoseIn: Number(elHoseSize.value),
         sourcePsi: Number(elSourcePsi.value),
         midlinePsi: Number(elMidlinePsi.value),
-        minSuction: Number(elMinSuction.value),
+        minSuction: 0,
         maxHose: Number(elMaxHose.value),
         reqOutlet: Number(elReqOutlet.value),
         lossMethod: currentLossMethod(),
@@ -1771,7 +1778,7 @@
     // Whenever a user changes inputs that affect hydraulics, just clear derived UI (no auto run)
     const hydraulicInputs = [
       elFlowBpm, elHoseSize, elSourcePsi, elMidlinePsi,
-      elMinSuction, elMaxHose, elReqOutlet, elManualPsi100, elPlacementStrategy
+      elMaxHose, elReqOutlet, elManualPsi100, elPlacementStrategy
     ];
     hydraulicInputs.forEach(inp => {
       if (!inp) return;
