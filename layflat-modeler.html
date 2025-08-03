@@ -1545,10 +1545,22 @@
             curve = pick; curve.family = (pick === c1) ? '8HNTH' : '8NHT4VA';
           }
 
+          // Enforce feasible inlet: shift upstream until inlet ≥ minSuction and ≥ 0 PSI
+          function isFeasibleInletCurve(psi) { return psi >= Math.max(minSuction, 0); }
+          while (placeIdx > i0 + 1) {
+            inletPsiTrue = simulateTo(i0, p, placeIdx);
+            if (isFeasibleInletCurve(inletPsiTrue)) break;
+            placeIdx -= 1;
+          }
+          inletPsiTrue = simulateTo(i0, p, placeIdx);
+          if (!isFeasibleInletCurve(inletPsiTrue)) {
+            return { pumps, finalPressure: NaN, infeasible: true, infeasibleAtFt: distFt[placeIdx] };
+          }
+
           pumps.push({
             index: placeIdx,
             distanceFt: distFt[placeIdx],
-            pressureBefore: Math.max(inletPsiTrue, minSuction),
+            pressureBefore: inletPsiTrue,
             discharge: curve.dischargePsi,
             rpm: curve.rpm,
             headAddedFt: curve.headAddedFt,
@@ -1587,8 +1599,13 @@
 
       // Map render
       renderPathOnMap(dsLatLngs, auto.pumps);
-      // Keep pumps for report details
+      // Keep pumps for report details (raw inlet preserved)
       window.__lastPumps = Array.isArray(auto.pumps) ? auto.pumps.map(p => ({...p})) : [];
+
+      // If algorithm declared infeasible, surface an explicit warning and set outlet/met accordingly
+      if (auto.infeasible) {
+        warnings.push(`Planning infeasible: cannot place pump with acceptable inlet (≥ ${Math.max(minSuction,0).toFixed(1)} PSI). Last attempt near ${Math.round(auto.infeasibleAtFt||0)} ft.`);
+      }
 
       // Results + chart
       renderResults(totalFt, usedPsiLossPer100, auto.finalPressure, reqOutlet, auto.pumps.length, warnings, distancesForChart, pressures, minSuction);
