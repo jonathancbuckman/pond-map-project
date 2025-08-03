@@ -5,8 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Layflat Hydraulic Modeler</title>
   <link rel="stylesheet" href="css/style.css"/>
-  <!-- Ensure local font paths to avoid 404s -->
-  <link rel="preload" href="fonts/isocpeur.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
   <link rel="manifest" href="/site.webmanifest">
   <meta name="msapplication-TileColor" content="#da532c">
@@ -1202,112 +1200,7 @@
       if (reportBtn) reportBtn.disabled = false;
 
       // Store the latest run dataset on window for report generation
-      // Also capture a satellite-map snapshot (base64 PNG) if possible.
-      // NOTE: Do NOT reference a 'mapPng' variable outside the async; we assign into state later.
-      async function captureMapSnapshot() {
-        try {
-          if (!mapInstance || !pathLayer) return null;
-          // Temporarily ensure satellite base (Esri) is visible for snapshot
-          let satelliteAdded = false;
-          let esriSatLayer = null;
-          mapInstance.eachLayer(l => {
-            if (l._url && l._url.includes('World_Imagery')) esriSatLayer = l;
-          });
-          if (!esriSatLayer) {
-            esriSatLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
-            esriSatLayer.addTo(mapInstance);
-            satelliteAdded = true;
-          }
-          // Resize map to ensure tiles are present
-          mapInstance.invalidateSize();
-          // Use Leaflet built-in canvas export approach by drawing map container to canvas via HTMLCanvasElement
-          // Fallback: attempt html2canvas-less approach using foreignObject (limited but ok for our case)
-          const node = mapInstance.getContainer();
-          const rect = node.getBoundingClientRect();
-          const width = Math.max(800, Math.round(rect.width));
-          const height = Math.max(500, Math.round(rect.height));
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-
-          // Draw visible tile layers
-          const tiles = node.querySelectorAll('.leaflet-tile-pane img.leaflet-tile');
-          await Promise.all(Array.from(tiles).map(img => {
-            if (img.complete) return Promise.resolve();
-            return new Promise(res => { img.onload = img.onerror = res; });
-          }));
-          Array.from(tiles).forEach(img => {
-            const s = img.style;
-            // Compute translated position via CSS transform matrix
-            const transform = s.transform || '';
-            const m = transform.match(/matrix\\(([^)]+)\\)/);
-            let tx = 0, ty = 0;
-            if (m) {
-              const parts = m[1].split(',').map(Number);
-              tx = parts[4] || 0; ty = parts[5] || 0;
-            }
-            try { ctx.drawImage(img, Math.round(tx), Math.round(ty)); } catch {}
-          });
-
-          // Draw SVG vector overlays (path and markers) if present
-          const svg = node.querySelector('svg.leaflet-zoom-animated');
-          if (svg) {
-            const xml = new XMLSerializer().serializeToString(svg);
-            const svgBlob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
-            const url = URL.createObjectURL(svgBlob);
-            await new Promise(res => {
-              const img = new Image();
-              img.onload = () => {
-                ctx.drawImage(img, 0, 0);
-                URL.revokeObjectURL(url);
-                res();
-              };
-              img.onerror = () => { URL.revokeObjectURL(url); res(); };
-              img.src = url;
-            });
-          }
-
-          if (satelliteAdded) {
-            try { mapInstance.removeLayer(esriSatLayer); } catch {}
-          }
-          return canvas.toDataURL('image/png');
-        } catch {
-          return null;
-        }
-      }
- 
-      // Build base state immediately (without map image yet)
       window.__modelerLastRun = {
-        flowBpm: Number(elFlowBpm.value),
-        hoseIn: Number(elHoseSize.value),
-        sourcePsi: Number(elSourcePsi.value),
-        midlinePsi: Number(elMidlinePsi.value),
-        minSuction: Number(elMinSuction.value),
-        maxHose: Number(elMaxHose.value),
-        reqOutlet: Number(elReqOutlet.value),
-        lossMethod: currentLossMethod(),
-        manualPsi100: Number(elManualPsi100.value),
-        placementStrategy: (elPlacementStrategy && elPlacementStrategy.value) ? elPlacementStrategy.value : 'reactive',
-        pathDir: currentPathDir(),
-        mapSnapshotPng: null, // filled asynchronously below
-        results: {
-          totalFt: Number(totalFt),
-          usedPsiLossPer100: Number(usedPsiLossPer100),
-          finalPressure: Number(finalPressure),
-          pumpCount: Number(pumpCount),
-          warnings: Array.isArray(warnings) ? [...warnings] : []
-        },
-        profile: { distances: Array.isArray(distances) ? distances.slice() : [], pressures: Array.isArray(pressures) ? pressures.slice() : [] },
-        pumpsSummary: Array.isArray(window.__lastPumps) ? window.__lastPumps.map(p => ({...p})) : []
-      };
- 
-      // Defer snapshot to avoid 'await' in non-async context; fill after state is created
-      (function queueSnapshot() {
-        captureMapSnapshot().then(function(png){
-          if (window.__modelerLastRun) window.__modelerLastRun.mapSnapshotPng = png || null;
-        }).catch(function(){});
-      })();
         flowBpm: Number(elFlowBpm.value),
         hoseIn: Number(elHoseSize.value),
         sourcePsi: Number(elSourcePsi.value),
@@ -1319,7 +1212,6 @@
         manualPsi100: Number(elManualPsi100.value),
         placementStrategy: elPlacementStrategy?.value || 'reactive',
         pathDir: currentPathDir(),
-        mapSnapshotPng: mapPng || null,
         results: {
           totalFt,
           usedPsiLossPer100,
@@ -1472,31 +1364,25 @@
       // Inline CSS for print
       const styles = `
         <style>
-          /* 8.5x11 portrait optimization with generous printable margins */
-          @page { size: 8.5in 11in; margin: 0.5in; }
-          html, body { height: 100%; }
-          body { font-family: 'ISOCPEUR', Arial, sans-serif; color:#222; margin:0; }
-          .wrap { max-width: 7.25in; margin: 0 auto; } /* 8.5in - (0.5in*2) = 7.5in; keep a bit of inner margin */
-          .hdr { text-align:center; margin:4px 0 8px; }
-          .title { font-size:22px; font-weight:700; margin:6px 0 0; }
+          @page { size: Letter; margin: 0.6in; }
+          body { font-family: 'ISOCPEUR', Arial, sans-serif; color:#222; }
+          .hdr { text-align:center; margin-bottom:8px; }
+          .title { font-size:22px; font-weight:700; margin:8px 0 2px; }
           .subtitle { font-size:12px; color:#666; }
-          .grid { display:grid; grid-template-columns: 1fr 1fr; column-gap: 18px; row-gap:6px; margin: 12px 0; }
+          .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; margin: 14px 0; }
           .kv { display:flex; gap:6px; font-size:13px; }
           .kv .k { width: 56%; color:#444; }
           .kv .v { flex:1; text-align:right; }
-          .section-h { font-size:16px; margin: 10px 0 6px; border-bottom:1px solid #e5e5e5; padding-bottom:4px; }
+          .section-h { font-size:16px; margin: 12px 0 6px; border-bottom:1px solid #e5e5e5; padding-bottom:4px; }
           table { width:100%; border-collapse: collapse; font-size:13px; }
           th, td { border: 1px solid #e5e5e5; padding:6px 8px; text-align:left; }
           th { background:#f8f8ff; }
           .center { text-align:center; }
-          .chart { width:100%; height:320px; margin-top:8px; border:1px solid #eee; }
-          .footer { text-align:center; font-size:11px; color:#777; margin-top:8px; }
+          .chart { width:100%; height:300px; margin-top:8px; border:1px solid #eee; }
+          .footer { text-align:center; font-size:11px; color:#777; margin-top:10px; }
           .badge { display:inline-block; padding:2px 8px; border-radius:12px; color:#fff; font-size:11px; }
           .good { background:#198754; }
           .bad { background:#dc3545; }
-          @media print {
-            .footer { margin-top:4px; }
-          }
         </style>
       `;
 
@@ -1511,11 +1397,10 @@
         <html>
           <head><meta charset="utf-8">${styles}<title>Layflat Line Report</title></head>
           <body>
-            <div class="wrap">
-              <div class="hdr">
-                <div class="title">Line Profile Report</div>
-                <div class="subtitle">Generated ${dateStr}</div>
-              </div>
+            <div class="hdr">
+              <div class="title">Line Profile Report</div>
+              <div class="subtitle">Generated ${dateStr}</div>
+            </div>
 
             <div class="grid">
               <div class="kv"><div class="k">Desired Rate</div><div class="v">${fmt(state.flowBpm,0)} BPM</div></div>
@@ -1546,15 +1431,6 @@
               <tbody>${pumpRows}</tbody>
             </table>
 
-            <div class="section-h">Map Preview (Satellite)</div>
-            ${state.mapSnapshotPng ? `
-              <div class="chart" style="height:260px; display:flex; align-items:center; justify-content:center; background:#f9fafb;">
-                <img alt="Map snapshot" src="${state.mapSnapshotPng}" style="max-width:100%; max-height:100%; border:1px solid #e5e5e5;"/>
-              </div>
-            ` : `
-              <div class="center" style="padding:14px; color:#777; border:1px solid #eee;">Map snapshot unavailable (tiles may not have loaded)</div>
-            `}
-
             <div class="section-h">Pressure Profile</div>
             <div class="chart">${svg}</div>
 
@@ -1563,8 +1439,7 @@
               <ul>${state.results.warnings.map(w => `<li>${w}</li>`).join('')}</ul>
             ` : ''}
 
-              <div class="footer">Print or Save as PDF using your browser</div>
-            </div>
+            <div class="footer">Print or Save as PDF using your browser</div>
           </body>
         </html>
       `;
@@ -1575,66 +1450,29 @@
       if (!Array.isArray(distances) || !Array.isArray(pressures) || distances.length < 2) {
         return '<div class="center" style="padding:20px;color:#666;">No chart data</div>';
       }
-      // Larger SVG to print crisply on 8.5x11
-      const width = 960, height = 320, padL = 60, padR = 20, padT = 30, padB = 50;
+      const width = 900, height = 300, padL = 50, padR = 10, padT = 10, padB = 30;
       const minX = distances[0], maxX = distances[distances.length-1];
-      let minY = Math.min(...pressures, isFinite(minLine)?minLine:Infinity);
-      let maxY = Math.max(...pressures, isFinite(minLine)?minLine:0);
+      let minY = Math.min(...pressures);
+      let maxY = Math.max(...pressures, minLine||0);
       if (!isFinite(minY) || !isFinite(maxY) || minY === maxY) { minY = 0; maxY = 1; }
-      // Nice tick generator
-      function niceTicks(lo, hi, n=5) {
-        const span = hi - lo;
-        const step = Math.pow(10, Math.floor(Math.log10(span/n)));
-        const err = span / (n*step);
-        const mult = err >= 7.5 ? 10 : err >= 3 ? 5 : err >= 1.5 ? 2 : 1;
-        const inc = step * mult;
-        const start = Math.ceil(lo / inc) * inc;
-        const ticks = [];
-        for (let v = start; v <= hi + 1e-9; v += inc) ticks.push(v);
-        return { ticks, inc };
-      }
       const sx = x => padL + (x - minX) * (width - padL - padR) / (maxX - minX || 1);
       const sy = y => height - padB - (y - minY) * (height - padT - padB) / (maxY - minY || 1);
 
       // Build polyline points
       const pts = distances.map((d,i) => `${sx(d)},${sy(pressures[i])}`).join(' ');
 
-      // Axis ticks
-      const yMeta = niceTicks(minY, maxY, 5);
-      const yTicks = yMeta.ticks;
-      const xTicksCount = 6;
-      const xTicks = Array.from({length:xTicksCount}, (_,i)=> minX + (i*(maxX-minX)/(xTicksCount-1)));
-
       // Min suction line
       const minYLine = isFinite(minLine) ? `
         <line x1="${sx(minX)}" y1="${sy(minLine)}" x2="${sx(maxX)}" y2="${sy(minLine)}"
               stroke="#ffc107" stroke-width="2" stroke-dasharray="6,6" />
-        <text x="${sx(maxX)-6}" y="${sy(minLine)-6}" text-anchor="end" fill="#b58900" font-size="11">Min Inlet</text>
       ` : '';
 
-      // Gridlines and labels
-      const yGrid = yTicks.map(t => `
-        <line x1="${padL}" y1="${sy(t)}" x2="${width-padR}" y2="${sy(t)}" stroke="#eee" />
-        <text x="${padL-8}" y="${sy(t)+4}" text-anchor="end" font-size="11" fill="#666">${t.toFixed(0)}</text>
-      `).join('');
-      const xGrid = xTicks.map(t => `
-        <line x1="${sx(t)}" y1="${padT}" x2="${sx(t)}" y2="${height-padB}" stroke="#f3f3f3" />
-        <text x="${sx(t)}" y="${height-padB+16}" text-anchor="middle" font-size="11" fill="#666">${Number(t/5280).toFixed(1)}</text>
-      `).join('');
-
       return `
-        <svg viewBox="0 0 ${width} ${height}" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pressure Profile">
+        <svg viewBox="0 0 ${width} ${height}" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
           <rect x="0" y="0" width="${width}" height="${height}" fill="white" />
-          <!-- Title -->
-          <text x="${width/2}" y="${padT-10}" text-anchor="middle" font-size="13" fill="#333">Expected Pressure (PSI)</text>
           <!-- Axes -->
           <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${height-padB}" stroke="#aaa" stroke-width="1"/>
           <line x1="${padL}" y1="${height-padB}" x2="${width-padR}" y2="${height-padB}" stroke="#aaa" stroke-width="1"/>
-          ${yGrid}
-          ${xGrid}
-          <!-- Axis labels -->
-          <text x="${(padL + width - padR)/2}" y="${height-12}" text-anchor="middle" font-size="12" fill="#333">Distance (miles)</text>
-          <text x="${14}" y="${(padT + height - padB)/2}" transform="rotate(-90 14 ${(padT + height - padB)/2})" text-anchor="middle" font-size="12" fill="#333">Pressure (PSI)</text>
           <!-- Data -->
           ${minYLine}
           <polyline fill="none" stroke="#0b5fff" stroke-width="2" points="${pts}" />
