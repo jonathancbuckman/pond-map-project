@@ -799,8 +799,11 @@
         // Try to reach end from current state
         const canReachEndP = simulatePressure(currentIdx, currentPressure, distFt.length - 1);
         if (canReachEndP >= minSuctionPsi) {
-          // done; no more pumps needed
+          // done; no more pumps needed for suction constraint
           currentPressure = canReachEndP;
+          // However, do not mistakenly report "no pumps" while also warning about hose overpressure.
+          // If max hose rating is exceeded anywhere, no suction-based pump will be added here;
+          // the user should be warned (already handled elsewhere), but we still exit placement loop.
           break;
         }
 
@@ -840,7 +843,56 @@
       }
 
       // Finish to end for final pressure
+      // Finish to end for final pressure
       const finalPressure = simulatePressure(currentIdx, currentPressure, distFt.length - 1);
+
+      // Guardrail: if final pressure is below required outlet while suction constraint never forced a pump,
+      // consider placing a single final-assist pump near the last valley before destination IF spacing allows.
+      // This keeps "minimum pump count" semantics but avoids surprising "no pump" when outlet target clearly fails.
+      // Only attempt when there are currently zero pumps and requirement is unmet.
+      if (pumps.length === 0 && isFinite(finalPressure)) {
+        try {
+          const reqOutlet = Number(document.getElementById('req-outlet-psi')?.value ?? '0');
+          if (isFinite(reqOutlet) && finalPressure < reqOutlet) {
+            // Search a small window (last ~0.75 mi) for a valley
+            const totalFt = distFt[distFt.length - 1] || 0;
+            const windowBackFt = 3960; // 0.75 mi
+            let loIdx = 0;
+            for (let i = distFt.length - 1; i >= 0; i--) {
+              if (totalFt - distFt[i] >= windowBackFt) { loIdx = i; break; }
+            }
+            let bestIdx = loIdx + 1;
+            let bestP = +Infinity;
+            // Compute pressure profile from start (sourcePsi) to each candidate
+            // Using a cached forward pass avoids O(n^2). Build cumulative pressure from source.
+            const cumP = new Array(distFt.length);
+            cumP[0] = sourcePsi;
+            for (let i = 1; i < distFt.length; i++) {
+              const segLen = distFt[i] - distFt[i - 1];
+              const dhFt = elevFt[i] - elevFt[i - 1];
+              const elevDeltaPsi = -dhFt * PSI_PER_FOOT_WATER;
+              const frictionPsi = lossPerFt * segLen;
+              cumP[i] = cumP[i - 1] + elevDeltaPsi - frictionPsi;
+            }
+            for (let i = Math.max(1, loIdx + 1); i < distFt.length - 1; i++) {
+              if (cumP[i] < bestP) { bestP = cumP[i]; bestIdx = i; }
+            }
+            // Enforce spacing relative to source implicit origin at 0 ft (allow first pump anywhere)
+            const spacingOk = pumps.length === 0 || (distFt[bestIdx] - (pumps[pumps.length - 1]?.distanceFt || -Infinity)) >= MIN_PUMP_SPACING_FT;
+            if (spacingOk) {
+              pumps.push({
+                index: bestIdx,
+                distanceFt: distFt[bestIdx],
+                pressureBefore: cumP[bestIdx],
+                discharge: midlinePsi
+              });
+              // Recompute final pressure from this new pump to end
+              const newFinal = simulatePressure(bestIdx, midlinePsi, distFt.length - 1);
+              return { pumps, finalPressure: newFinal };
+            }
+          }
+        } catch {}
+      }
 
       return { pumps, finalPressure };
     }
