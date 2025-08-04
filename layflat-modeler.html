@@ -256,7 +256,7 @@
         <li>When satisfied, click “Generate Report” to open a printable summary of inputs, pump list, and the pressure profile.</li>
       </ol>
       <p class="inline-help" style="max-width:880px; margin-top:8px;">
-        Notes: Elevations are sampled from public terrain data and may be approximate. Suction minimum is not enforced automatically in manual mode; verify realistic inlets when choosing pump locations and setpoints.
+        Notes: Elevations are sampled from public terrain data and may be approximate.
       </p>
     </section>
 
@@ -288,7 +288,13 @@
     <section class="section-card">
       <h3>Hydraulic Inputs</h3>
       <p class="inline-help" style="margin-top:-6px;">
-        Set operating parameters for your system. After you click Run Calculation, give it a second to process.      </p>
+        Set operating parameters for your system. After you click Run Calculation, give it a second to process.
+      </p>
+      <div class="inline-help" style="margin-top:6px; color:#444; line-height:1.45;">
+        <strong>How friction loss is calculated</strong>: The PSI loss per 100 ft is derived from an empirical lookup table that was measured on a 12‑inch layflat system at various flows (converted from barrels per minute to GPM). For 12" hose, we interpolate between the nearest table points to get the head loss in feet per 100 ft, then convert to PSI using 0.433 PSI/ft of water column.
+        <br/><br/>
+        For 14" and 16" hoses, the 12" baseline is scaled using a standard hydraulic similarity relationship where head loss varies with diameter to approximately the 4.87 power. In practice this means larger diameters have proportionally lower friction loss for the same total flow. Mathematically, Loss(target) ≈ Loss(12") × (12 / target_diameter)^4.87. When dual parallel runs are selected, the total flow is split evenly between the hoses and the resulting per‑run loss is divided by the number of runs.
+      </div>
       <div class="form-grid">
         <div class="field">
           <label for="flow-bpm">Flow Rate (Barrels per minute)</label>
@@ -298,9 +304,9 @@
         <div class="field">
           <label for="hose-size">Hose Diameter</label>
           <select id="hose-size">
-            <option value="12">12 inches</option>
+            <option value="12" selected>12 inches</option>
             <option value="14">14 inches</option>
-            <option value="16" selected>16 inches</option>
+            <option value="16">16 inches</option>
           </select>
         </div>
 
@@ -804,7 +810,7 @@
 
     function resetForm() {
       elFlowBpm.value = '50';
-      elHoseSize.value = '16';
+      elHoseSize.value = '12';
       elSourcePsi.value = '100';
       elMidlinePsi.value = '80';
       elMaxHose.value = '150';
