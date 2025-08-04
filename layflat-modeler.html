@@ -448,9 +448,9 @@
  
   <!-- Chart.js for pressure plot -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
- 
+  
   <!-- SheetJS (XLSX) for Excel export -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js" defer onload="window.__xlsxReady=true" onerror="console.error('Failed to load SheetJS XLSX library');"></script>
 
   <!-- Lightweight client-side gate for Resume link -->
   <script>
@@ -1926,7 +1926,16 @@
     const excelBtnInit = document.getElementById('download-excel');
     if (excelBtnInit) {
       excelBtnInit.addEventListener('click', () => {
-        try { window.downloadExcel && window.downloadExcel(); } catch (e) { console.error('Excel export failed:', e); alert('Excel export failed'); }
+        try {
+          if (!window.__xlsxReady || !window.XLSX) {
+            alert('Excel library is still loading. Please try again in a moment.');
+            return;
+          }
+          window.downloadExcel && window.downloadExcel();
+        } catch (e) {
+          console.error('Excel export failed:', e);
+          alert('Excel export failed');
+        }
       });
     }
  
