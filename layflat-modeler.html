@@ -686,42 +686,7 @@
       return dists;
     }
 
-    // Automatic midline pump placement (reactive baseline)
-    function placeMidlinePumps(distFt, elevFt, sourcePsi, midlinePsi, minSuctionPsi, psiLossPer100) {
-      const lossPerFt = psiLossPer100 / 100.0;
-      const pumps = [];
-      let currentPressure = sourcePsi;
-      const HORIZON = 10;
-
-      for (let i = 0; i < distFt.length - 1; i++) {
-        let lookAheadPressure = currentPressure;
-        let needsPump = false;
-
-        for (let j = i + 1; j < Math.min(i + 1 + HORIZON, distFt.length); j++) {
-          const segLenLA = distFt[j] - distFt[j - 1];
-          const dhFtLA = elevFt[j] - elevFt[j - 1];
-          const elevDeltaPsiLA = -dhFtLA * PSI_PER_FOOT_WATER;
-          const frictionPsiLA = lossPerFt * segLenLA;
-          lookAheadPressure = lookAheadPressure + elevDeltaPsiLA - frictionPsiLA;
-
-          if (lookAheadPressure < minSuctionPsi) { needsPump = true; break; }
-          if (lookAheadPressure > (minSuctionPsi + 20)) { break; }
-        }
-
-        if (needsPump && (i > 0 || currentPressure < minSuctionPsi)) {
-          pumps.push({ index: i, distanceFt: distFt[i], pressureBefore: currentPressure, discharge: midlinePsi });
-          currentPressure = midlinePsi;
-        }
-
-        const segLen = distFt[i + 1] - distFt[i];
-        const dhFt = elevFt[i + 1] - elevFt[i];
-        const elevDeltaPsi = -dhFt * PSI_PER_FOOT_WATER;
-        const frictionPsi = lossPerFt * segLen;
-        currentPressure = currentPressure + elevDeltaPsi - frictionPsi;
-      }
-
-      return { pumps, finalPressure: currentPressure };
-    }
+    // [Removed] automatic midline pump placement (legacy)
 
     // Removed automatic placement algorithms (optimized/curve). Manual-only app.
 
@@ -1276,127 +1241,7 @@
       });
     }
 
-    // --- Pump curves: Cornell 8HNTH (approx from provided chart), Q in GPM, head/NPSHR in feet ---
-    // Monotone piecewise-cubic (PCHIP) for stable interpolation over anchor points
-    function pchip(xs, ys) {
-      const n = xs.length;
-      const h = new Array(n-1);
-      const s = new Array(n-1);
-      for (let i=0;i<n-1;i++){ h[i]=xs[i+1]-xs[i]; s[i]=(ys[i+1]-ys[i])/(h[i]||1); }
-      const m = new Array(n);
-      m[0]=s[0]; m[n-1]=s[n-2];
-      for (let i=1;i<n-1;i++){
-        if (s[i-1]*s[i] <= 0) m[i]=0;
-        else {
-          const w1 = 2*h[i]+h[i-1], w2 = h[i]+2*h[i-1];
-          m[i] = (w1+w2)/(w1/s[i-1] + w2/s[i]);
-        }
-      }
-      return function(x){
-        if (x<=xs[0]) return ys[0];
-        if (x>=xs[n-1]) return ys[n-1];
-        let k=0; while (xs[k+1] < x) k++;
-        const t = (x - xs[k])/(h[k]||1);
-        const t2=t*t, t3=t2*t;
-        const yk=ys[k], yk1=ys[k+1], mk=m[k], mk1=m[k+1], hk=h[k];
-        return (2*t3-3*t2+1)*yk + (t3-2*t2+t)*mk*hk + (-2*t3+3*t2)*yk1 + (t3-t2)*mk1*hk;
-      };
-    }
-
-    // Anchor points estimated from charts. These are coarse and can be refined.
-    // For each RPM band we map Q[gpm] -> Head[ft].
-    const PUMP_8HNTH = (() => {
-      const RPMS = [1200, 1400, 1600, 1800];
-      const H_pts = {
-        1200: { Q:[1500, 2500, 3500, 4500, 5500], H:[165, 160, 145, 130, 110] },
-        1400: { Q:[1500, 2500, 3500, 4500, 5500, 6500], H:[210, 205, 190, 172, 152, 130] },
-        1600: { Q:[2000, 3000, 4000, 5000, 6000, 7000], H:[260, 250, 235, 215, 195, 175] },
-        1800: { Q:[2500, 3500, 4500, 5500, 6500, 8000], H:[320, 305, 285, 265, 240, 210] }
-      };
-      // NPSHR isolines ~10–30 ft rising with Q. Use a simple piecewise fit across total Q range.
-      const NPSHR_pts = { Q:[2000, 3000, 4000, 5000, 6000, 7000, 8000], N:[10, 12, 15, 20, 24, 27, 30] };
-
-      const headFns = {};
-      RPMS.forEach(r => headFns[r] = pchip(H_pts[r].Q, H_pts[r].H));
-      const npshrFn = pchip(NPSHR_pts.Q, NPSHR_pts.N);
-
-      return {
-        rpms: RPMS,
-        headAt(Q, rpm) { return headFns[rpm](Q); },
-        npshrAt(Q) { return npshrFn(Q); },
-        domain() {
-          const minQ = 1500, maxQ = 8000; // conservative from anchors
-          return { minQ, maxQ };
-        }
-      };
-    })();
-
-    // Lower-capacity family: Cornell 8NHTA (from second chart)
-    const PUMP_8NHTA = (() => {
-      const RPMS = [800,1000,1200,1400,1600,1770];
-      // Coarse anchors digitized from the provided chart (Q gpm -> Head ft)
-      const H_pts = {
-        800:  { Q:[ 500, 1000, 1500, 2000, 2500, 3000], H:[ 60,   70,   78,   85,   88,   85 ] },
-        1000: { Q:[ 700, 1200, 1800, 2400, 3000, 3600], H:[ 85,   95,  108,  118,  122,  118 ] },
-        1200: { Q:[ 900, 1500, 2200, 3000, 3600, 4200], H:[110,  125,  140,  150,  152,  145 ] },
-        1400: { Q:[1000, 1800, 2600, 3400, 4200, 4800], H:[140,  160,  180,  195,  205,  198 ] },
-        1600: { Q:[1200, 2000, 3000, 3800, 4600, 5200], H:[170,  195,  215,  235,  245,  238 ] },
-        1770: { Q:[1400, 2200, 3200, 4200, 5000, 5600], H:[200,  225,  250,  270,  285,  275 ] }
-      };
-      // NPSHR isolines 8–20 ft increasing with flow
-      const NPSHR_pts = { Q:[500,1000,1500,2000,2500,3000,4000,5000,5600], N:[8,9,10,11.5,13,14.5,16.5,18.5,20] };
-
-      const headFns = {};
-      RPMS.forEach(r => headFns[r] = pchip(H_pts[r].Q, H_pts[r].H));
-      const npshrFn = pchip(NPSHR_pts.Q, NPSHR_pts.N);
-
-      return {
-        rpms: RPMS,
-        headAt(Q, rpm) { return headFns[rpm](Q); },
-        npshrAt(Q) { return npshrFn(Q); },
-        domain() {
-          const minQ = 500, maxQ = 5600;
-          return { minQ, maxQ };
-        }
-      };
-    })();
-
-    // Compute discharge using pump curve with selectable policy.
-    // policy: 'min' (lowest RPM meeting need), 'max' (highest RPM under max hose PSI), default 'max' for auto-pick.
-    function computePumpDischargeByCurve({ inletPsi, maxHosePsi, flowBpm, psiLossPerFt, upcomingElevFt, upcomingDistFt, family='8HNTH', policy='max' }) {
-      const Qgpm = bpmToGpm(flowBpm);
-      const fam = family === '8NHTA' ? PUMP_8NHTA : PUMP_8HNTH;
-      const { minQ, maxQ } = fam.domain();
-      const Qc = Math.max(minQ, Math.min(maxQ, Qgpm));
-
-      // Control horizon L to estimate head need near the placement
-      const L = Math.max(1000, Math.min(6000, upcomingDistFt || 3000)); // 1k–6k ft
-      const elevGainFt = Math.max(0, (upcomingElevFt || 0) * (L / Math.max(1, upcomingDistFt || L)));
-      const frictionHeadFt = (psiLossPerFt * L) / PSI_PER_FOOT_WATER;
-      const requiredHeadFt = elevGainFt + frictionHeadFt;
-
-      // Evaluate all RPMs
-      const candidates = fam.rpms.map(rpm => {
-        const H = fam.headAt(Qc, rpm);
-        const boostPsi = H * PSI_PER_FOOT_WATER;
-        const dischargePsi = Math.min(inletPsi + boostPsi, maxHosePsi);
-        return { rpm, H, dischargePsi };
-      });
-
-      let pick;
-      if (policy === 'min') {
-        // Choose the lowest RPM that meets required head with small margin
-        pick = candidates.find(c => c.H >= requiredHeadFt * 0.98) || candidates[candidates.length - 1];
-      } else {
-        // 'max' policy: choose the highest RPM that does not exceed Max Hose PSI at discharge
-        // If multiple share the same discharge clamp (==maxHosePsi), take highest RPM among those; else take highest RPM overall.
-        const valid = candidates.filter(c => c.dischargePsi <= maxHosePsi + 1e-6);
-        pick = (valid.length ? valid[valid.length - 1] : candidates[candidates.length - 1]);
-      }
-
-      const npshrFt = fam.npshrAt(Qc);
-      return { dischargePsi: pick.dischargePsi, rpm: pick.rpm, headAddedFt: pick.H, npshrFt, Qgpm: Qc };
-    }
+    // [Removed] pump curve helpers and families (manual mode only)
 
     async function readKmlOrKmz(file) {
       const name = (file?.name || '').toLowerCase();
@@ -1593,188 +1438,13 @@
       window.__lastUsedPsiLossPer100 = usedPsiLossPer100;
       window.__lastWarnings = warnings;
 
-      // Manual-only: minSuction already defined earlier in scope as 0
-
-      // Auto midline pump placement: choose algorithm by Pump Logic
-      let auto;
-      if (placementStrategy === 'manual') {
-        manualMode = true;
-        // ensure UI elements visible
-        document.getElementById('manual-panel').style.display = 'block';
-        // if first time entering manual on this path and there are no pumps, start with empty set (source only)
-        if (!Array.isArray(manualPumps)) manualPumps = [];
-        // render baseline map/path and any existing manual markers, then recompute profile
-        renderPathOnMap(dsLatLngs, []);
-        updateManualProfileAndUI();
-        return; // manual mode defers results build to updateManualProfileAndUI
-      } else if (placementStrategy === 'curve_8hnth' || placementStrategy === 'curve_8nht4va' || placementStrategy === 'curve_auto') {
-        const lossPerFt = usedPsiLossPer100 / 100.0;
-        const pumps = [];
-        let i0 = 0;
-        let p = sourcePsi;
-
-        function simulateTo(idxFrom, pFrom, idxTo) {
-          let pp = pFrom;
-          for (let k = idxFrom + 1; k <= idxTo; k++) {
-            const segLen = distFt[k] - distFt[k-1];
-            const dh = elevationsFt[k] - elevationsFt[k-1];
-            pp = pp + (-dh) * PSI_PER_FOOT_WATER - lossPerFt * segLen;
-          }
-          return pp;
-        }
-
-        function nextFailIndex() {
-          let pp = p;
-          for (let k = i0 + 1; k < distFt.length; k++) {
-            const segLen = distFt[k] - distFt[k-1];
-            const dh = elevationsFt[k] - elevationsFt[k-1];
-            pp = pp + (-dh) * PSI_PER_FOOT_WATER - lossPerFt * segLen;
-            if (pp < minSuction) return k;
-          }
-          return -1;
-        }
-
-        while (i0 < distFt.length - 1) {
-          const fi = nextFailIndex();
-          if (fi < 0) break;
-
-          // pick placement near valley before failure (scan back up to 12 indices)
-          const lo = Math.max(i0 + 1, fi - 12);
-          const hi = Math.max(i0 + 1, fi - 1);
-          let placeIdx = lo, bestP = Infinity;
-          for (let k = lo; k <= hi; k++) {
-            const pk = simulateTo(i0, p, k);
-            if (pk < bestP) { bestP = pk; placeIdx = k; }
-          }
-
-          // compute discharge from curve for a horizon ahead (from placeIdx to min(placeIdx+N,end))
-          const aheadIdx = Math.min(distFt.length - 1, placeIdx + 20);
-          const horizonDist = distFt[aheadIdx] - distFt[placeIdx];
-          const horizonElev = elevationsFt[aheadIdx] - elevationsFt[placeIdx];
-          const inletAtPlace = simulateTo(i0, p, placeIdx);
-
-          // Enforce positive suction/NPSH at placement by moving upstream if needed.
-          // Convert inlet PSI to feet of water head for NPSH comparison.
-          function psiToFeet(psi){ return psi / PSI_PER_FOOT_WATER; }
-          let adjustedIdx = placeIdx;
-          let inletPsiTrue = inletAtPlace;
-          let inletHeadFt = psiToFeet(inletPsiTrue);
-          // Approximate NPSHR at current flow (use both families and take the min requirement)
-          const gpmForNpsh = bpmToGpm(flowBpm);
-          const npshr8hnth = PUMP_8HNTH.npshrAt(Math.max(PUMP_8HNTH.domain().minQ, Math.min(PUMP_8HNTH.domain().maxQ, gpmForNpsh)));
-          const npshr8nht4 = PUMP_8NHT4VA.npshrAt(Math.max(PUMP_8NHT4VA.domain().minQ, Math.min(PUMP_8NHT4VA.domain().maxQ, gpmForNpsh)));
-          const npshrReqFt = Math.min(npshr8hnth, npshr8nht4); // optimistic, ensures at least one family is feasible
-          const suctionFloorPsi = Math.max(minSuction, 0);     // user floor in PSI
-
-          // Shift upstream until both inlet PSI ≥ user floor and inlet head ≥ NPSHR
-          while (adjustedIdx > i0 + 1) {
-            if (inletPsiTrue >= suctionFloorPsi && inletHeadFt >= npshrReqFt) break;
-            adjustedIdx -= 1;
-            inletPsiTrue = simulateTo(i0, p, adjustedIdx);
-            inletHeadFt = psiToFeet(inletPsiTrue);
-          }
-          placeIdx = adjustedIdx;
-
-          function computeForFamily(famKey, policy){
-            return computePumpDischargeByCurve({
-              inletPsi: Math.max(inletPsiTrue, suctionFloorPsi),
-              maxHosePsi: maxHose,
-              flowBpm: flowBpm,
-              psiLossPerFt: lossPerFt,
-              upcomingElevFt: horizonElev,
-              upcomingDistFt: horizonDist,
-              family: famKey,
-              policy
-            });
-          }
-          let curve;
-          if (placementStrategy === 'curve_8hnth') {
-            curve = computeForFamily('8HNTH','max');
-          } else if (placementStrategy === 'curve_8nht4va') {
-            curve = computeForFamily('8NHT4VA','max');
-          } else {
-            // auto-pick with suction feasibility: evaluate both families with 'max' policy,
-            // discard family if resulting discharge would back-calc inlet below NPSHR (rare) then pick best head.
-            const c1 = computeForFamily('8HNTH','max');
-            const c2 = computeForFamily('8NHT4VA','max');
-            // Prefer higher discharge; tie-break on head, then lower RPM
-            const pick = (c1.dischargePsi > c2.dischargePsi + 1e-6) ? c1 : (c2.dischargePsi > c1.dischargePsi + 1e-6 ? c2 :
-                         (c1.headAddedFt > c2.headAddedFt + 1e-6 ? c1 : (c2.headAddedFt > c1.headAddedFt + 1e-6 ? c2 :
-                         ((c1.rpm||9999) <= (c2.rpm||9999) ? c1 : c2))));
-            curve = pick; curve.family = (pick === c1) ? '8HNTH' : '8NHT4VA';
-          }
-
-          // Enforce feasible inlet: shift upstream until inlet ≥ minSuction and ≥ 0 PSI
-          function isFeasibleInletCurve(psi) { return psi >= Math.max(minSuction, 0); }
-          while (placeIdx > i0 + 1) {
-            inletPsiTrue = simulateTo(i0, p, placeIdx);
-            if (isFeasibleInletCurve(inletPsiTrue)) break;
-            placeIdx -= 1;
-          }
-          inletPsiTrue = simulateTo(i0, p, placeIdx);
-          if (!isFeasibleInletCurve(inletPsiTrue)) {
-            return { pumps, finalPressure: NaN, infeasible: true, infeasibleAtFt: distFt[placeIdx] };
-          }
-
-          pumps.push({
-            index: placeIdx,
-            distanceFt: distFt[placeIdx],
-            pressureBefore: inletPsiTrue,
-            discharge: curve.dischargePsi,
-            rpm: curve.rpm,
-            headAddedFt: curve.headAddedFt,
-            qgpm: curve.Qgpm,
-            family: curve.family || (placementStrategy === 'curve_8nht4va' ? '8NHT4VA' : '8HNTH')
-          });
-
-          // reset state
-          i0 = placeIdx;
-          p = curve.dischargePsi;
-        }
-
-        const finalPressure = simulateTo(i0, p, distFt.length - 1);
-        auto = { pumps, finalPressure };
-      } else {
-        // Fixed setpoint mode (existing minimized algorithm)
-        auto = placeMidlinePumpsMinimized(distFt, elevationsFt, sourcePsi, midlinePsi, minSuction, usedPsiLossPer100);
-      }
-
-      // Path status line
-      updatePathStatus(dsLatLngs, distFt[distFt.length - 1] || 0);
-
-      // Hide manual panel when not in manual mode
-      const mp = document.getElementById('manual-panel');
-      if (mp) mp.style.display = (placementStrategy === 'manual') ? 'block' : 'none';
-      manualMode = (placementStrategy === 'manual');
-
-      // Build final pressure profile with placed pumps
-      const prof = buildProfileWithPumps(distFt, elevationsFt, sourcePsi, auto.pumps, usedPsiLossPer100);
-
-      const distancesForChart = prof.distances || [];
-      const pressures = prof.pressures || [];
-
-      // Checks
-      if (pressures.some(p => p > maxHose)) {
-        warnings.push('Calculated pressure exceeds the maximum hose rating somewhere along the line.');
-      }
-
-      // Map render
-      renderPathOnMap(dsLatLngs, auto.pumps);
-      // Keep pumps for report details (raw inlet preserved)
-      // Also persist the actual placement strategy used for the run (for report header)
-      window.__lastPumps = Array.isArray(auto.pumps) ? auto.pumps.map(p => ({...p})) : [];
-      window.__lastPlacementStrategy = placementStrategy;
-
-      // If algorithm declared infeasible, surface an explicit warning and set outlet/met accordingly
-      if (auto.infeasible) {
-        warnings.push(`Planning infeasible: cannot place pump with acceptable inlet (≥ ${Math.max(minSuction,0).toFixed(1)} PSI). Last attempt near ${Math.round(auto.infeasibleAtFt||0)} ft.`);
-      }
-
-      // Results + chart
-      renderResults(totalFt, usedPsiLossPer100, auto.finalPressure, auto.pumps.length, warnings, distancesForChart, pressures, minSuction);
-
-      // Elevation chart update (auto/other modes)
-      renderElevationChart(distFt, elevationsFt, auto.pumps);
+      // Manual-only: show manual panel, render path, and defer outputs to manual UI recompute
+      manualMode = true;
+      document.getElementById('manual-panel').style.display = 'block';
+      if (!Array.isArray(manualPumps)) manualPumps = [];
+      renderPathOnMap(dsLatLngs, []);
+      updateManualProfileAndUI();
+      return;
     }
 
     document.getElementById('run-calc').addEventListener('click', runCalc);
@@ -1789,37 +1459,17 @@
       const totalMi = milesFromFeet(state.results.totalFt);
       const usedLoss = state.results.usedPsiLossPer100;
 
-      // Helper to compute NPSHR used (min across families) for the flow in the run
-      const qgpm = bpmToGpm(state.flowBpm || 0);
-      const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-      const q8h = clamp(qgpm, (PUMP_8HNTH?.domain().minQ)||0, (PUMP_8HNTH?.domain().maxQ)||qgpm);
-      const q8v = clamp(qgpm, (PUMP_8NHTA?.domain().minQ)||0, (PUMP_8NHTA?.domain().maxQ)||qgpm);
-      const npshrMinFt = Math.min(
-        PUMP_8HNTH ? PUMP_8HNTH.npshrAt(q8h) : Infinity,
-        PUMP_8NHTA ? PUMP_8NHTA.npshrAt(q8v) : Infinity
-      );
-      const npshMarginFt = 5;
-      const npshrWithMarginFt = undefined; // suppress NPSHR note in manual-mode report
-
-      // Build per-pump rows with curve details where available
+      // Manual-mode report: no NPSHR or curve family details.
       const pumpRows = (state.pumpsSummary || []).map((p, i) => {
         const distMi = milesFromFeet(p.distanceFt);
-        const fam = p.family ? String(p.family) : '—';
-        const rpm = p.rpm != null ? `${p.rpm}` : '—';
-        const head = p.headAddedFt != null ? `${fmt(p.headAddedFt,0)} ft` : '—';
-        const q = p.qgpm != null ? `${fmt(p.qgpm,0)} gpm` : '—';
         return `
           <tr>
             <td>#${i+1}</td>
             <td>${fmt(distMi, 2)} mi</td>
             <td>${fmt(p.pressureBefore, 1)} PSI</td>
             <td>${fmt(p.discharge, 1)} PSI</td>
-            <td>${fam}</td>
-            <td>${rpm}</td>
-            <td>${head}</td>
-            <td>${q}</td>
           </tr>`;
-      }).join('') || `<tr><td colspan="8">No midline pumps placed</td></tr>`;
+      }).join('') || `<tr><td colspan="4">No midline pumps placed</td></tr>`;
 
       // Inline CSS optimized for 8.5x11 portrait, narrow centered stack
       const styles = `
@@ -1897,7 +1547,6 @@
                   <thead>
                     <tr>
                       <th>#</th><th>Distance</th><th>Inlet PSI</th><th>Discharge PSI</th>
-                      <th>Family</th><th>RPM</th><th>Head Added</th><th>Flow</th>
                     </tr>
                   </thead>
                   <tbody>${pumpRows}</tbody>
