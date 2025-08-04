@@ -814,6 +814,38 @@
     // pumps: { index: i, distanceFt, discharge, pressureBefore (computed), marker }
     let manualPumps = [];
 
+    // --- Elevation cache helpers (reuse elevations if KML path doesn't change) ---
+    function pathKeyFromLatLngs(latlngs) {
+      // Build a compact, stable string key from the downsampled coords
+      // Use 6-decimal precision to match fetch batching precision
+      if (!Array.isArray(latlngs) || !latlngs.length) return '';
+      const parts = [];
+      for (let i = 0; i < latlngs.length; i++) {
+        const [lat, lon] = latlngs[i];
+        parts.push(lat.toFixed(6) + ',' + lon.toFixed(6));
+      }
+      return parts.join('|');
+    }
+
+    // Simple in-memory cache keyed by pathKey
+    window.__elevCache = window.__elevCache || Object.create(null);
+
+    function getCachedElevationsFt(pathKey) {
+      try {
+        const entry = window.__elevCache[pathKey];
+        if (!entry || !Array.isArray(entry.elevFt)) return null;
+        return entry.elevFt.slice(); // return a copy
+      } catch {
+        return null;
+      }
+    }
+
+    function setCachedElevationsFt(pathKey, elevFt) {
+      try {
+        window.__elevCache[pathKey] = { elevFt: Array.isArray(elevFt) ? elevFt.slice() : [] };
+      } catch {}
+    }
+
     function currentLossMethod() {
       for (const r of lossRadios) if (r.checked) return r.value;
       return 'lookup';
@@ -1476,26 +1508,44 @@
       // Downsample if needed
       const dsLatLngs = downsampleLatLngs(latlngs, MAX_POINTS);
 
-      // Elevations
-      let elevationsM = [];
+      // Build a path cache key based on the downsampled coordinates
+      const pathKey = pathKeyFromLatLngs(dsLatLngs);
+      window.__lastPathKey = pathKey; // keep for retries/report if needed
+
+      // Elevations (cache-first)
+      let elevationsFt = null;
       const retryWrap = document.getElementById('elev-retry-wrap');
-      try {
-        showBusy('Sampling elevation…');
-        elevationsM = await fetchElevationsOpenTopo(dsLatLngs);
+
+      // Try cache
+      const cachedFt = getCachedElevationsFt(pathKey);
+      if (cachedFt && cachedFt.length === dsLatLngs.length) {
+        elevationsFt = cachedFt;
         if (retryWrap) retryWrap.style.display = 'none';
-      } catch (e) {
-        if (retryWrap) retryWrap.style.display = 'block';
-        warnings.push(`Elevation fetch failed: ${e.message}`);
-        elevationsM = dsLatLngs.map(() => 0);
-      } finally {
-        hideBusy();
-        // Clear any pending JSONP script tags that might outlive failures
+      } else {
+        // Cache miss: fetch from network
+        let elevationsM = [];
         try {
-          const heads = document.querySelectorAll('head script[src*="api.allorigins.win/get"]');
-          heads.forEach(s => s.parentNode && s.parentNode.removeChild(s));
-        } catch {}
+          showBusy('Sampling elevation…');
+          elevationsM = await fetchElevationsOpenTopo(dsLatLngs);
+          if (retryWrap) retryWrap.style.display = 'none';
+        } catch (e) {
+          if (retryWrap) retryWrap.style.display = 'block';
+          warnings.push(`Elevation fetch failed: ${e.message}`);
+          elevationsM = dsLatLngs.map(() => 0);
+        } finally {
+          hideBusy();
+          // Clear any pending JSONP script tags that might outlive failures
+          try {
+            const heads = document.querySelectorAll('head script[src*="api.allorigins.win/get"]');
+            heads.forEach(s => s.parentNode && s.parentNode.removeChild(s));
+          } catch {}
+        }
+        elevationsFt = elevationsM.map(m => m * 3.28084);
+        // Store in cache if sizes align
+        if (Array.isArray(elevationsFt) && elevationsFt.length === dsLatLngs.length) {
+          setCachedElevationsFt(pathKey, elevationsFt);
+        }
       }
-      const elevationsFt = elevationsM.map(m => m * 3.28084);
 
       // Distances
       const distFt = cumulativeDistancesFt(dsLatLngs);
@@ -1890,6 +1940,11 @@
           const m = await fetchElevationsOpenTopo(coords);
           const ft = m.map(v => v * 3.28084);
           manualElevFt = ft;
+
+          // Also update cache for the current pathKey
+          const k = window.__lastPathKey || pathKeyFromLatLngs(coords);
+          if (k) setCachedElevationsFt(k, ft);
+
           hideBusy();
           const rw = document.getElementById('elev-retry-wrap');
           if (rw) rw.style.display = 'none';
