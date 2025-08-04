@@ -1712,6 +1712,13 @@
             fill: #222;
             font-family: 'ISOCPEUR', Arial, sans-serif;
           }
+          /* Print-specific pagination control */
+          @media print {
+            /* Keep each card intact if it fits on a page */
+            .card { break-inside: avoid; page-break-inside: avoid; }
+            /* Utility to force the next section onto a new page */
+            .page-break-before { break-before: page; page-break-before: always; }
+          }
         </style>
       `;
 
@@ -1770,7 +1777,7 @@
                 <div class="chart">${svg}</div>
               </div>
 
-              <div class="card" style="margin-top:10px;">
+              <div class="card page-break-before" style="margin-top:10px;">
                 <div class="section-h">Elevation Profile</div>
                 <div class="chart">${elevSvg}</div>
                 ${state.results.warnings && state.results.warnings.length ? `
