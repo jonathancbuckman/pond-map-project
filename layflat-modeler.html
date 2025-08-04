@@ -288,12 +288,11 @@
     <section class="section-card">
       <h3>Hydraulic Inputs</h3>
       <p class="inline-help" style="margin-top:-6px;">
-        Set operating parameters for your system. The simulation starts at the Source discharge pressure and accounts for friction and terrain elevation changes along the uploaded path. When pressure is predicted to fall below the minimum suction threshold ahead, a midline pump is placed to boost pressure.
-      </p>
+        Set operating parameters for your system. After you click Run Calculation, give it a second to process.      </p>
       <div class="form-grid">
         <div class="field">
           <label for="flow-bpm">Flow Rate (Barrels per minute)</label>
-          <input id="flow-bpm" type="number" step="0.1" min="0" value="50">
+          <input id="flow-bpm" type="number" step="0.1" min="0" value="75">
         </div>
 
         <div class="field">
@@ -313,7 +312,7 @@
 
         <div class="field">
           <label for="midline-psi">Default Booster Discharge (PSI)</label>
-          <input id="midline-psi" type="number" step="0.1" min="0" value="80">
+          <input id="midline-psi" type="number" step="0.1" min="0" value="100">
           <div class="inline-help">Default discharge applied when adding a manual booster. You can change per-pump in the panel.</div>
         </div>
 
@@ -358,7 +357,7 @@
     <section class="section-card" id="map-section" style="display:none;">
       <h3>Map Preview</h3>
       <p class="inline-help" style="margin-top:-6px;">
-        The polyline shows your uploaded path. Pump markers are placed automatically where the inlet pressure would otherwise dip below the minimum suction threshold.
+        The polyline shows your uploaded path.
         Click markers for details.
       </p>
       <div id="modeler-map"></div>
@@ -366,7 +365,7 @@
       <div id="manual-panel" class="section-card" style="margin-top:10px; display:none;">
         <h3 style="margin-top:0;">Manual Pumps</h3>
         <div class="inline-help" style="margin-top:-6px;">
-          Click on the red polyline to add a booster. Drag markers to move along the line. Click a marker to delete. Edit discharge setpoints below.
+          Click on the red polyline to add a booster pump. Drag markers to move along the line. Click a marker to delete. Edit discharge setpoints below.
         </div>
         <div id="manual-pump-list" class="manual-pump-list" style="margin-top:8px;"></div>
       </div>
