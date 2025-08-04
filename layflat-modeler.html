@@ -1926,7 +1926,7 @@
     const excelBtnInit = document.getElementById('download-excel');
     if (excelBtnInit) {
       excelBtnInit.addEventListener('click', () => {
-        try { downloadExcel(); } catch (e) { console.error('Excel export failed:', e); alert('Excel export failed'); }
+        try { window.downloadExcel && window.downloadExcel(); } catch (e) { console.error('Excel export failed:', e); alert('Excel export failed'); }
       });
     }
  
@@ -1960,7 +1960,7 @@
     // --- Excel export (single sheet) ---
     // Columns per user request:
     // index, distance_ft, segment_length_ft, elevation_ft, pressure_psi, pumpAtThisIndex (inlet/discharge if present)
-    function buildRowsForExcel() {
+    window.buildRowsForExcel = function buildRowsForExcel() {
       const state = window.__modelerLastRun;
       if (!state || !state.profile || !state.profile.distances || !state.profile.pressures) return [];
   
@@ -2027,7 +2027,7 @@
       return rows;
     }
   
-    function downloadExcel() {
+    window.downloadExcel = function downloadExcel() {
       try {
         const rows = buildRowsForExcel();
         if (!rows.length) {
