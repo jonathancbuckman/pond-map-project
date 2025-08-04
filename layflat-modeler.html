@@ -421,16 +421,44 @@
     <nav class="footer-nav" aria-label="Footer">
       <a class="footer-link" href="index.html">Home</a>
       <a class="footer-link" href="layflat-modeler.html" aria-current="page">Layflat Hydraulic Modeler</a>
-      <a class="footer-link" href="resume.html">Resume</a>
+      <a id="resume-link" class="footer-link" href="resume.html" data-protected="true">Resume</a>
     </nav>
   </footer>
-
+ 
   <!-- Leaflet JS for map preview -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
+ 
   <!-- Chart.js for pressure plot -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-
+ 
+  <!-- Lightweight client-side gate for Resume link -->
+  <script>
+    (function(){
+      const link = document.getElementById('resume-link');
+      if (!link) return;
+      const PASSWORD = 'water2025';
+      const STORAGE_KEY = 'resume_access_granted_v1';
+      function hasAccess(){ try { return sessionStorage.getItem(STORAGE_KEY) === 'true'; } catch(_) { return false; } }
+      function grantAccess(){ try { sessionStorage.setItem(STORAGE_KEY, 'true'); } catch(_) {} }
+      function promptForPassword(){
+        const input = window.prompt('Enter password to view the resume:');
+        if (input === null) return false;
+        if (input === PASSWORD) { grantAccess(); return true; }
+        window.alert('Incorrect password.'); return false;
+      }
+      function handleNavigate(ev){
+        if (hasAccess()) return;
+        ev.preventDefault();
+        if (promptForPassword()) {
+          window.location.href = link.getAttribute('href') || 'resume.html';
+        }
+      }
+      link.addEventListener('click', handleNavigate);
+      link.addEventListener('keydown', function(e){
+        if (e.key === 'Enter' || e.key === ' ') handleNavigate(e);
+      });
+    })();
+  </script>
   <script>
     // --- Constants and data ---
     const BARRELS_TO_GALLONS = 42.0;

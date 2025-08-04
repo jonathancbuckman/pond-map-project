@@ -139,6 +139,28 @@
   </style>
 </head>
 <body>
+  <script>
+    // Lightweight client-side guard for direct hits to resume.html.
+    // Note: This only deters casual access. True protection requires a backend.
+    (function(){
+      const STORAGE_KEY = 'resume_access_granted_v1';
+      const PASSWORD = 'water2025';
+      function hasAccess(){ try { return sessionStorage.getItem(STORAGE_KEY) === 'true'; } catch(_) { return false; } }
+      function grantAccess(){ try { sessionStorage.setItem(STORAGE_KEY, 'true'); } catch(_) {} }
+      if (!hasAccess()) {
+        // Prompt once on entry; if incorrect or canceled, bounce back to Home.
+        const input = window.prompt('Enter password to view the resume:');
+        if (input === PASSWORD) {
+          grantAccess();
+        } else {
+          window.alert('Access denied.');
+          // Prefer navigating back to home page.
+          window.location.replace('index.html');
+          return;
+        }
+      }
+    })();
+  </script>
   <main class="resume-wrap" role="main">
     <header class="resume-header" role="banner">
       <h1 class="resume-title">Jonathan Buckman</h1>
