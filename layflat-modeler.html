@@ -1083,12 +1083,28 @@
       renderElevationChart(manualDistFt, manualElevFt, manualPumps);
  
       // Persist last run for report with manual selection
+      // Build a fresh, sorted summary for report consistency
+      const sortedForReport = manualPumps
+        .slice()
+        .sort((a,b) => a.distanceFt - b.distanceFt)
+        .map(p => ({
+          index: p.index,
+          distanceFt: p.distanceFt,
+          pressureBefore: p.pressureBefore,
+          discharge: Number(p.discharge || 0)
+        }));
+
+      // Persist last run for report with manual selection
+      window.__lastPumps = sortedForReport;
+      window.__lastPlacementStrategy = 'manual';
+
+      // Keep __modelerLastRun synchronized for report
       window.__modelerLastRun = window.__modelerLastRun || {};
       window.__modelerLastRun.profile = { distances: distancesForChart, pressures };
       window.__modelerLastRun.results = window.__modelerLastRun.results || {};
       window.__modelerLastRun.results.finalPressure = finalPressure;
-      window.__lastPumps = manualPumps.map(p => ({ index:p.index, distanceFt:p.distanceFt, pressureBefore:p.pressureBefore, discharge:Number(p.discharge||0) }));
-      window.__lastPlacementStrategy = 'manual';
+      window.__modelerLastRun.pumpsSummary = sortedForReport;
+      window.__modelerLastRun.placementStrategy = 'manual';
     }
 
     function renderPathOnMap(latlngs, pumps) {
@@ -1722,6 +1738,21 @@
         alert('Run a calculation with a valid path before generating a report.');
         return;
       }
+
+      // Rebuild pumpsSummary from the current manualPumps to reflect any drags/edits
+      if (Array.isArray(window.manualPumps) && window.manualPumps.length) {
+        const refreshed = window.manualPumps
+          .slice()
+          .sort((a,b) => a.distanceFt - b.distanceFt)
+          .map(p => ({
+            index: p.index,
+            distanceFt: p.distanceFt,
+            pressureBefore: p.pressureBefore,
+            discharge: Number(p.discharge || 0)
+          }));
+        state.pumpsSummary = refreshed;
+      }
+
       const html = buildReportHtml(state);
       const w = window.open('', '_blank');
       if (!w) { alert('Popup blocked. Allow popups to view the report.'); return; }
