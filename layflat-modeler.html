@@ -1748,6 +1748,101 @@
       `;
     }
 
+    // Render a basic SVG elevation chart with pump markers (inline, no external libs)
+    function buildSimpleElevationSvg(distancesFt, elevationsFt, pumpsSummary) {
+      if (!Array.isArray(distancesFt) || !Array.isArray(elevationsFt) || distancesFt.length < 2 || elevationsFt.length < 2) {
+        return '<div class="center" style="padding:20px;color:#666;">No elevation data</div>';
+      }
+      const n = Math.min(distancesFt.length, elevationsFt.length);
+      const dist = distancesFt.slice(0, n);
+      const elev = elevationsFt.slice(0, n);
+
+      // Convert X to miles for labeling/scale
+      const miles = dist.map(d => Number(d) / 5280);
+
+      const width = 900, height = 300, padL = 60, padR = 10, padT = 10, padB = 38;
+      const minX = miles[0], maxX = miles[miles.length - 1];
+
+      let minY = Math.min(...elev);
+      let maxY = Math.max(...elev);
+      if (!isFinite(minY) || !isFinite(maxY) || minY === maxY) { minY = 0; maxY = 1; }
+
+      function niceStep(span, maxTicks) {
+        const rough = span / Math.max(1, maxTicks);
+        const pow10 = Math.pow(10, Math.floor(Math.log10(rough)));
+        const candidates = [1, 2, 2.5, 5, 10].map(m => m * pow10);
+        let best = candidates[0], bestDiff = Infinity;
+        for (const s of candidates) {
+          const n = Math.ceil(span / s);
+          const diff = Math.abs(n - maxTicks);
+          if (diff < bestDiff) { bestDiff = diff; best = s; }
+        }
+        return best;
+      }
+      function linspaceTicks(minV, maxV, desired) {
+        const span = Math.max(1e-9, maxV - minV);
+        const step = niceStep(span, desired);
+        const start = Math.ceil(minV / step) * step;
+        const ticks = [];
+        for (let v = start; v <= maxV + 1e-9; v += step) ticks.push(Number(v.toFixed(10)));
+        return { ticks, step };
+      }
+
+      const sx = x => padL + (x - minX) * (width - padL - padR) / (maxX - minX || 1);
+      const sy = y => height - padB - (y - minY) * (height - padT - padB) / (maxY - minY || 1);
+
+      // Line path
+      const pts = miles.map((m, i) => `${sx(m)},${sy(elev[i])}`).join(' ');
+
+      // Pump markers: locate by nearest distance in feet against dist array
+      const pumpDots = Array.isArray(pumpsSummary) ? pumpsSummary.map((p) => {
+        const dFt = Number(p.distanceFt || 0);
+        // linear search for nearest index (n is at most 2000 after downsampling)
+        let bestI = 0, bestDiff = Infinity;
+        for (let i = 0; i < dist.length; i++) {
+          const df = Math.abs(dist[i] - dFt);
+          if (df < bestDiff) { bestDiff = df; bestI = i; }
+        }
+        const x = sx(miles[bestI]);
+        const y = sy(elev[bestI]);
+        return `<circle cx="${x}" cy="${y}" r="4.5" fill="#000" stroke="#000" />`;
+      }).join('') : '';
+
+      const yTicksInfo = linspaceTicks(minY, maxY, 6);
+      const xTicksInfo = linspaceTicks(minX, maxX, 6);
+
+      const yTicksSvg = yTicksInfo.ticks.map(v => `
+        <line x1="${padL-4}" y1="${sy(v)}" x2="${padL}" y2="${sy(v)}" stroke="#777" stroke-width="1"/>
+        <line x1="${padL}" y1="${sy(v)}" x2="${width-padR}" y2="${sy(v)}" stroke="#e9ecff" stroke-width="1"/>
+        <text x="${padL-8}" y="${sy(v)+4}" text-anchor="end" font-size="11" fill="#444"
+              font-family="'ISOCPEUR', Arial, sans-serif">${Math.round(v)}</text>
+      `).join('');
+
+      const xTicksSvg = xTicksInfo.ticks.map(v => `
+        <line x1="${sx(v)}" y1="${height-padB}" x2="${sx(v)}" y2="${height-padB+4}" stroke="#777" stroke-width="1"/>
+        <line x1="${sx(v)}" y1="${padT}" x2="${sx(v)}" y2="${height-padB}" stroke="#f2f4ff" stroke-width="1"/>
+        <text x="${sx(v)}" y="${height-padB+16}" text-anchor="middle" font-size="11" fill="#444"
+              font-family="'ISOCPEUR', Arial, sans-serif">${Number(v).toFixed(2)}</text>
+      `).join('');
+
+      return `
+        <svg viewBox="0 0 ${width} ${height}" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="0" width="${width}" height="${height}" fill="white" />
+          <!-- Axes base lines -->
+          <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${height-padB}" stroke="#aaa" stroke-width="1"/>
+          <line x1="${padL}" y1="${height-padB}" x2="${width-padR}" y2="${height-padB}" stroke="#aaa" stroke-width="1"/>
+          <!-- Grid + tick labels -->
+          ${yTicksSvg}
+          ${xTicksSvg}
+          <!-- Axis labels -->
+          <text class="axis-label" x="${(padL + (width - padR)) / 2}" y="${height - 4}" text-anchor="middle">Distance (miles)</text>
+          <text class="axis-label" transform="translate(16 ${(padT + (height - padB)) / 2}) rotate(-90)" text-anchor="middle">Elevation (ft)</text>
+          <!-- Data -->
+          <polyline fill="none" stroke="rgba(11,95,255,0.85)" stroke-width="2" points="${pts}" />
+          ${pumpDots}
+        </svg>
+      `;
+    }
     function openReport() {
       const state = window.__modelerLastRun;
       if (!state) {
