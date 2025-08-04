@@ -449,8 +449,8 @@
   <!-- Chart.js for pressure plot -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   
-  <!-- SheetJS (XLSX) for Excel export -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js" defer onload="window.__xlsxReady=true" onerror="console.error('Failed to load SheetJS XLSX library');"></script>
+  <!-- SheetJS (XLSX) for Excel export) - use reliable unpkg fallback -->
+  <script src="https://unpkg.com/xlsx@0.19.3/dist/xlsx.full.min.js" defer onload="window.__xlsxReady=true" onerror="console.error('Failed to load SheetJS XLSX library from unpkg');"></script>
 
   <!-- Lightweight client-side gate for Resume link -->
   <script>
@@ -1925,10 +1925,27 @@
     // Wire Excel button (bind once at load)
     const excelBtnInit = document.getElementById('download-excel');
     if (excelBtnInit) {
-      excelBtnInit.addEventListener('click', () => {
+      excelBtnInit.addEventListener('click', async () => {
         try {
-          if (!window.__xlsxReady || !window.XLSX) {
-            alert('Excel library is still loading. Please try again in a moment.');
+          // If library not ready, attempt dynamic fallback load once
+          if (!window.XLSX) {
+            // try injecting fallback from jsDelivr if unpkg failed (or vice versa)
+            await (async function ensureXlsx() {
+              if (window.__xlsxEnsureTried) return;
+              window.__xlsxEnsureTried = true;
+              const url = 'https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js';
+              await new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = url;
+                s.async = true;
+                s.onload = () => { window.__xlsxReady = true; resolve(); };
+                s.onerror = () => reject(new Error('Fallback SheetJS load failed'));
+                document.head.appendChild(s);
+              }).catch(err => { console.error(err); });
+            })();
+          }
+          if (!window.XLSX) {
+            alert('Excel library could not be loaded (network blocked). You can still use the app; try again later.');
             return;
           }
           window.downloadExcel && window.downloadExcel();
