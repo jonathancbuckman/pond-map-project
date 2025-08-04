@@ -480,15 +480,21 @@
     // --- Constants and data ---
     const BARRELS_TO_GALLONS = 42.0;
     const PSI_PER_FOOT_WATER = 0.433;
+
+    // Backend proxy endpoint hosted on PythonAnywhere (Flask).
+    // Prefer this to eliminate CORS/proxy/JSONP issues.
+    const BACKEND_ELEV_ENDPOINT = '/elevation';
+
+    // Keep original OpenTopoData URL for fallback path if backend is unavailable.
     const OPENTOPODATA_ENDPOINT = 'https://api.opentopodata.org/v1/ned10m';
-    // CORS-safe JSON proxies to bypass missing CORS headers from third-party services.
-    // Try in order; some may block or rate-limit.
+
+    // Minimal proxy list retained ONLY for hard fallback after backend failure.
     const CORS_JSON_PROXIES = [
-      // Keep a single permissive reader proxy as best-effort; others are unreliable/rate-limited.
       { mode: 'prefix', value: 'https://r.jina.ai/' }
     ];
+
     const MAX_POINTS = 2000;          // hard cap for safety
-    const BATCH_SIZE = 100;           // OpenTopoData batch chunk
+    const BATCH_SIZE = 100;           // batch chunk (server matches this)
     // 12" reference table: [GPM, head loss (ft) per 100 ft]
     const HOSE_DATA_12_INCH = [
       [0,0.0],[300,0.03],[350,0.04],[400,0.04],[450,0.05],
@@ -569,30 +575,17 @@
       throw new Error('KMZ is not supported. Please upload a .kml file.');
     }
 
-    // Fetch elevations for latlngs via OpenTopoData in batches; returns meters array
+    // Fetch elevations with backend-first strategy; returns array of meters
     async function fetchElevationsOpenTopo(latlngs) {
-      // Strategy (hardened):
-      // 1) Try permissive reader proxy (r.jina.ai) with retries.
-      // 2) Try direct fetch (if CORS is ever enabled) with retries.
-      // 3) Try JSONP via AllOrigins (last resort).
-      // If all fail for a batch, throw to caller so UI can offer Retry instead of silently flattening.
       const elevations = [];
 
-      async function fetchJson(url) {
-        const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      async function fetchJson(url, init) {
+        const resp = await fetch(url, init);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        try {
-          return await resp.json();
-        } catch {
-          const txt = await resp.text();
-          try {
-            return JSON.parse(txt);
-          } catch {
-            throw new Error('Non-JSON response');
-          }
-        }
+        return await resp.json();
       }
 
+      // JSONP fallback kept for extreme cases (should rarely be needed now)
       async function fetchViaJsonp(url) {
         return new Promise((resolve, reject) => {
           const cbName = 'otd_cb_' + Math.random().toString(36).slice(2);
@@ -630,62 +623,57 @@
 
       for (let i = 0; i < latlngs.length; i += BATCH_SIZE) {
         const batch = latlngs.slice(i, i + BATCH_SIZE);
-        const locations = batch.map(([lat, lon]) => `${lat.toFixed(6)},${lon.toFixed(6)}`).join('|');
-        // Direct URL (will CORS-fail in browser, but we keep it as a last check for environments that allow it)
-        const directUrl = `${OPENTOPODATA_ENDPOINT}?locations=${encodeURIComponent(locations)}`;
-        // Proxied URL for r.jina.ai (prevents the browser from trying direct first, which causes noisy CORS errors)
-        const proxiedUrl = `${CORS_JSON_PROXIES[0].value}${directUrl}`;
+        const locArr = batch.map(([lat, lon]) => `${lat.toFixed(6)},${lon.toFixed(6)}`);
 
         let got = null;
         let attempt = 0;
 
         while (attempt <= MAX_RETRIES && !got) {
           try {
-            // 1) Try single proxy (r.jina.ai) FIRST to avoid browser attempting the direct URL (which logs CORS errors)
-            let lastProxyErr = null;
+            // 1) Try our backend first (POST /elevation)
+            const data = await fetchJson(BACKEND_ELEV_ENDPOINT, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+              body: JSON.stringify({ locations: locArr })
+            });
+            if (data && data.status === 'OK' && Array.isArray(data.results)) {
+              got = data.results.map(r => (r && typeof r.elevation === 'number') ? r.elevation : 0);
+            } else {
+              throw new Error('Backend invalid payload');
+            }
+          } catch (backendErr) {
             try {
-              const data = await fetchJson(proxiedUrl);
+              // 2) Fallback to reader proxy of OpenTopoData (GET)
+              const locations = encodeURIComponent(locArr.join('|'));
+              const directUrl = `${OPENTOPODATA_ENDPOINT}?locations=${locations}`;
+              const proxiedUrl = `${CORS_JSON_PROXIES[0].value}${directUrl}`;
+              const data = await fetchJson(proxiedUrl, { headers: { 'Accept': 'application/json' } });
               if (data && data.status === 'OK' && Array.isArray(data.results)) {
                 got = data.results.map(r => (r && typeof r.elevation === 'number') ? r.elevation : 0);
               } else {
-                lastProxyErr = new Error('Proxy returned invalid payload');
+                throw new Error('Proxy invalid payload');
               }
-            } catch (e) {
-              lastProxyErr = e;
-            }
-            if (!got && lastProxyErr) throw lastProxyErr;
-
-          } catch (proxyErr) {
-            try {
-              // 2) JSONP (less noisy in console than repeated direct CORS failures)
-              const data = await fetchViaJsonp(directUrl);
-              if (!data || data.status !== 'OK' || !Array.isArray(data.results)) throw new Error('JSONP invalid payload');
-              got = data.results.map(r => (r && typeof r.elevation === 'number') ? r.elevation : 0);
-            } catch (jsonpErr) {
+            } catch (proxyErr) {
               try {
-                // 3) Direct (kept last; may log CORS in console in some environments)
-                const data = await fetchJson(directUrl);
-                if (!data || data.status !== 'OK' || !Array.isArray(data.results)) throw new Error('Invalid payload');
+                // 3) Last resort JSONP
+                const locations = encodeURIComponent(locArr.join('|'));
+                const directUrl = `${OPENTOPODATA_ENDPOINT}?locations=${locations}`;
+                const data = await fetchViaJsonp(directUrl);
+                if (!data || data.status !== 'OK' || !Array.isArray(data.results)) throw new Error('JSONP invalid payload');
                 got = data.results.map(r => (r && typeof r.elevation === 'number') ? r.elevation : 0);
-              } catch (directErr) {
-                if (attempt === MAX_RETRIES) {
-                  // After all retries, throw so caller can surface Retry UI
-                  throw new Error('Elevation batch failed after retries');
-                }
+              } catch (jsonpErr) {
+                if (attempt === MAX_RETRIES) throw new Error('Elevation batch failed after retries');
               }
             }
           }
 
           if (!got) {
-            await sleep(500 + attempt * 500); // 500ms, then 1000ms
+            await sleep(400 + attempt * 400);
             attempt++;
           }
         }
 
-        if (!got) {
-          // Should not reach here due to throw above; safeguard
-          throw new Error('Elevation batch failed');
-        }
+        if (!got) throw new Error('Elevation batch failed');
 
         elevations.push(...got);
       }
