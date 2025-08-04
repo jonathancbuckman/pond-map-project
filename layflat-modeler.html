@@ -299,12 +299,12 @@
       <div class="form-grid">
         <div class="field">
           <label for="flow-bpm">Flow Rate (Barrels per minute)</label>
-          <input id="flow-bpm" type="number" step="0.1" min="0" value="75">
+          <input id="flow-bpm" type="number" step="0.1" min="0" value="75" data-default="75">
         </div>
 
         <div class="field">
           <label for="hose-size">Hose Diameter</label>
-          <select id="hose-size">
+          <select id="hose-size" data-default="12">
             <option value="12" selected>12 inches</option>
             <option value="14">14 inches</option>
             <option value="16">16 inches</option>
@@ -313,25 +313,25 @@
 
         <div class="field">
           <label for="source-psi">Source Pump Discharge (PSI)</label>
-          <input id="source-psi" type="number" step="0.1" min="0.1" value="100">
+          <input id="source-psi" type="number" step="0.1" min="0.1" value="100" data-default="100">
           <div class="inline-help">Starting pressure at the source.</div>
         </div>
 
         <div class="field">
           <label for="midline-psi">Default Booster Discharge (PSI)</label>
-          <input id="midline-psi" type="number" step="0.1" min="0" value="100">
+          <input id="midline-psi" type="number" step="0.1" min="0" value="100" data-default="100">
           <div class="inline-help">Default discharge applied when adding a manual booster. You can change per-pump in the panel.</div>
         </div>
 
         <div class="field">
           <label for="max-hose-psi">Max Allowable Hose Pressure (PSI)</label>
-          <input id="max-hose-psi" type="number" step="1" min="1" value="150">
+          <input id="max-hose-psi" type="number" step="1" min="1" value="150" data-default="150">
         </div>
 
 
         <div class="field">
           <label for="hose-runs">Hose Runs</label>
-          <select id="hose-runs">
+          <select id="hose-runs" data-default="1">
             <option value="1" selected>Single</option>
             <option value="2">Dual (parallel)</option>
           </select>
@@ -350,7 +350,7 @@
         </div>
         <div id="manual-loss-wrap" class="field" style="display:none; margin-top:8px;">
           <label for="manual-loss-psi100">Manual PSI Loss per 100 ft</label>
-          <input id="manual-loss-psi100" type="number" step="0.01" min="0" value="0">
+          <input id="manual-loss-psi100" type="number" step="0.01" min="0" value="0" data-default="0">
         </div>
       </div>
 
@@ -850,14 +850,35 @@
     updateManualVisibility();
 
     function resetForm() {
-      // Reset primary inputs to defaults
-      elFlowBpm.value = '50';
-      elHoseSize.value = '12';
-      elSourcePsi.value = '100';
-      elMidlinePsi.value = '80';
-      elMaxHose.value = '150';
-      document.querySelector('input[name="loss-method"][value="lookup"]').checked = true;
-      elManualPsi100.value = '0';
+      // Reset inputs to their initial defaults as in markup
+      function valOrAttr(el) {
+        if (!el) return;
+        const def = el.getAttribute('data-default');
+        if (def != null) {
+          el.value = def;
+        } else if (el.hasAttribute('value')) {
+          el.value = el.getAttribute('value');
+        }
+      }
+      valOrAttr(elFlowBpm);
+      valOrAttr(elHoseSize);
+      valOrAttr(elSourcePsi);
+      valOrAttr(elMidlinePsi);
+      valOrAttr(elMaxHose);
+      valOrAttr(elManualPsi100);
+      valOrAttr(elHoseRuns);
+
+      // Reset radios to their original checked state using DOM attributes
+      const lossLookup = document.querySelector('input[name="loss-method"][value="lookup"]');
+      const lossManual = document.querySelector('input[name="loss-method"][value="manual"]');
+      if (lossLookup) lossLookup.checked = lossLookup.hasAttribute('checked');
+      if (lossManual) lossManual.checked = lossManual.hasAttribute('checked');
+
+      const pathSrcToDest = document.querySelector('input[name="path-dir"][value="source_to_dest"]');
+      const pathDestToSrc = document.querySelector('input[name="path-dir"][value="dest_to_source"]');
+      if (pathSrcToDest) pathSrcToDest.checked = pathSrcToDest.hasAttribute('checked');
+      if (pathDestToSrc) pathDestToSrc.checked = pathDestToSrc.hasAttribute('checked');
+
       updateManualVisibility();
 
       // Hide main sections
@@ -868,9 +889,15 @@
       // Destroy pressure chart instance
       if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
 
-      // Destroy elevation chart instance and hide its section
+      // Destroy elevation chart instance and hide its section; clear the canvas to remove residual drawing
       if (elevChartInstance) { try { elevChartInstance.destroy(); } catch {} elevChartInstance = null; }
       if (elElevChartSection) { elElevChartSection.style.display = 'none'; }
+      if (elevChartCanvas && elevChartCanvas.getContext) {
+        try {
+          const ctx = elevChartCanvas.getContext('2d');
+          ctx && ctx.clearRect(0, 0, elevChartCanvas.width, elevChartCanvas.height);
+        } catch {}
+      }
 
       // Tear down map and layers
       if (mapInstance) {
@@ -1301,7 +1328,17 @@
         try { elevChartInstance.destroy(); } catch {}
         elevChartInstance = null;
       }
-      if (!Array.isArray(distFt) || !Array.isArray(elevFt) || distFt.length === 0 || elevFt.length === 0) return;
+      // If no valid data, hide the section and clear canvas so nothing persists visually
+      if (!Array.isArray(distFt) || !Array.isArray(elevFt) || distFt.length === 0 || elevFt.length === 0) {
+        if (elElevChartSection) elElevChartSection.style.display = 'none';
+        if (elevChartCanvas && elevChartCanvas.getContext) {
+          try {
+            const ctx = elevChartCanvas.getContext('2d');
+            ctx && ctx.clearRect(0, 0, elevChartCanvas.width, elevChartCanvas.height);
+          } catch {}
+        }
+        return;
+      }
 
       // Build labels in miles, but LIMIT the number of unique category labels to avoid duplicates causing jumps.
       // Use one label per point, preserving order, and do NOT round for labels; let formatter handle display.
@@ -2010,8 +2047,17 @@
       // Hide previous results/chart until the next run completes
       elResults.style.display = 'none';
       elChartSection.style.display = 'none';
-      if (elElevChartSection) elElevChartSection.style.display = 'none';
+
+      // Elevation: destroy instance, hide section, and clear canvas to avoid ghost rendering
       if (elevChartInstance) { try { elevChartInstance.destroy(); } catch {} elevChartInstance = null; }
+      if (elElevChartSection) elElevChartSection.style.display = 'none';
+      if (elevChartCanvas && elevChartCanvas.getContext) {
+        try {
+          const ctx = elevChartCanvas.getContext('2d');
+          ctx && ctx.clearRect(0, 0, elevChartCanvas.width, elevChartCanvas.height);
+        } catch {}
+      }
+
       // Keep map section visible but clear pumps so user sees path without stale boosts
       if (pumpLayer) { try { pumpLayer.clearLayers(); } catch {} }
       // Disable report and clear last run to avoid stale report generation
