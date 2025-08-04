@@ -1188,21 +1188,20 @@
       elevChartInstance = new Chart(elevChartCanvas.getContext('2d'), {
         type: 'line',
         data: {
-          // Category labels are indices 0..n-1; we provide raw miles and format in ticks
-          labels: labels.map((_, i) => i),
+          // Use a linear scale for X with numeric miles to avoid category artifacts
           datasets: [
             {
               label: 'Elevation (ft)',
-              data: lineData, // array of y-values indexed by x=index
+              data: miles.slice(0, lineData.length).map((m, i) => ({ x: m, y: lineData[i] })),
               borderColor: 'rgba(11,95,255,0.85)',
               backgroundColor: 'rgba(11,95,255,0.20)',
               pointRadius: 0,
-              tension: 0.15
+              tension: 0.1
             },
             {
               label: 'Pump',
               type: 'scatter',
-              data: pumpPoints, // [{x:index, y:elev}]
+              data: pumpPoints.map(p => ({ x: miles[p.x], y: p.y })), // convert index -> miles
               pointBackgroundColor: '#000',
               pointBorderColor: '#000',
               pointRadius: 6,
@@ -1217,12 +1216,9 @@
           scales: {
             x: {
               title: { display: true, text: 'Line Distance (miles)' },
-              type: 'category',
+              type: 'linear',
               ticks: {
-                callback: (val, idx) => {
-                  const m = miles[idx];
-                  return (m != null) ? m.toFixed(2) : '';
-                },
+                callback: (value) => Number(value).toFixed(2),
                 maxRotation: 60,
                 minRotation: 45
               }
