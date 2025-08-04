@@ -631,45 +631,43 @@
       for (let i = 0; i < latlngs.length; i += BATCH_SIZE) {
         const batch = latlngs.slice(i, i + BATCH_SIZE);
         const locations = batch.map(([lat, lon]) => `${lat.toFixed(6)},${lon.toFixed(6)}`).join('|');
+        // Direct URL (will CORS-fail in browser, but we keep it as a last check for environments that allow it)
         const directUrl = `${OPENTOPODATA_ENDPOINT}?locations=${encodeURIComponent(locations)}`;
+        // Proxied URL for r.jina.ai (prevents the browser from trying direct first, which causes noisy CORS errors)
+        const proxiedUrl = `${CORS_JSON_PROXIES[0].value}${directUrl}`;
 
         let got = null;
         let attempt = 0;
 
         while (attempt <= MAX_RETRIES && !got) {
           try {
-            // 1) Try single proxy (r.jina.ai)
+            // 1) Try single proxy (r.jina.ai) FIRST to avoid browser attempting the direct URL (which logs CORS errors)
             let lastProxyErr = null;
-            for (const proxy of CORS_JSON_PROXIES) {
-              try {
-                const proxiedUrl = proxy.mode === 'param'
-                  ? (proxy.value + encodeURIComponent(directUrl))
-                  : (proxy.value + directUrl);
-                const data = await fetchJson(proxiedUrl);
-                if (data && data.status === 'OK' && Array.isArray(data.results)) {
-                  got = data.results.map(r => (r && typeof r.elevation === 'number') ? r.elevation : 0);
-                  break;
-                }
+            try {
+              const data = await fetchJson(proxiedUrl);
+              if (data && data.status === 'OK' && Array.isArray(data.results)) {
+                got = data.results.map(r => (r && typeof r.elevation === 'number') ? r.elevation : 0);
+              } else {
                 lastProxyErr = new Error('Proxy returned invalid payload');
-              } catch (e) {
-                lastProxyErr = e;
               }
+            } catch (e) {
+              lastProxyErr = e;
             }
             if (!got && lastProxyErr) throw lastProxyErr;
 
           } catch (proxyErr) {
             try {
-              // 2) Direct (rarely allowed, but attempt)
-              const data = await fetchJson(directUrl);
-              if (!data || data.status !== 'OK' || !Array.isArray(data.results)) throw new Error('Invalid payload');
+              // 2) JSONP (less noisy in console than repeated direct CORS failures)
+              const data = await fetchViaJsonp(directUrl);
+              if (!data || data.status !== 'OK' || !Array.isArray(data.results)) throw new Error('JSONP invalid payload');
               got = data.results.map(r => (r && typeof r.elevation === 'number') ? r.elevation : 0);
-            } catch (directErr) {
+            } catch (jsonpErr) {
               try {
-                // 3) JSONP
-                const data = await fetchViaJsonp(directUrl);
-                if (!data || data.status !== 'OK' || !Array.isArray(data.results)) throw new Error('JSONP invalid payload');
+                // 3) Direct (kept last; may log CORS in console in some environments)
+                const data = await fetchJson(directUrl);
+                if (!data || data.status !== 'OK' || !Array.isArray(data.results)) throw new Error('Invalid payload');
                 got = data.results.map(r => (r && typeof r.elevation === 'number') ? r.elevation : 0);
-              } catch (jsonpErr) {
+              } catch (directErr) {
                 if (attempt === MAX_RETRIES) {
                   // After all retries, throw so caller can surface Retry UI
                   throw new Error('Elevation batch failed after retries');
@@ -1469,6 +1467,11 @@
         elevationsM = dsLatLngs.map(() => 0);
       } finally {
         hideBusy();
+        // Clear any pending JSONP script tags that might outlive failures
+        try {
+          const heads = document.querySelectorAll('head script[src*="api.allorigins.win/get"]');
+          heads.forEach(s => s.parentNode && s.parentNode.removeChild(s));
+        } catch {}
       }
       const elevationsFt = elevationsM.map(m => m * 3.28084);
 
