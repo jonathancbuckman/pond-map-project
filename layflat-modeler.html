@@ -1191,12 +1191,14 @@
           // Use a linear scale for X with numeric miles to avoid category artifacts
           datasets: [
             {
+              // Draw the pumps above the line by giving a higher dataset index and parsing order
               label: 'Elevation (ft)',
               data: miles.slice(0, lineData.length).map((m, i) => ({ x: m, y: lineData[i] })),
               borderColor: 'rgba(11,95,255,0.85)',
               backgroundColor: 'rgba(11,95,255,0.20)',
               pointRadius: 0,
-              tension: 0.1
+              tension: 0.1,
+              order: 1
             },
             {
               label: 'Pump',
@@ -1205,7 +1207,8 @@
               pointBackgroundColor: '#000',
               pointBorderColor: '#000',
               pointRadius: 6,
-              showLine: false
+              showLine: false,
+              order: 0
             }
           ]
         },
