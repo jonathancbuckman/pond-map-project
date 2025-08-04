@@ -1922,7 +1922,14 @@
     if (reportBtn) {
       reportBtn.addEventListener('click', openReport);
     }
-
+    // Wire Excel button (bind once at load)
+    const excelBtnInit = document.getElementById('download-excel');
+    if (excelBtnInit) {
+      excelBtnInit.addEventListener('click', () => {
+        try { downloadExcel(); } catch (e) { console.error('Excel export failed:', e); alert('Excel export failed'); }
+      });
+    }
+ 
     // Wire Retry Elevations button
     const __retryBtn = document.getElementById('retry-elev');
     if (__retryBtn) {
