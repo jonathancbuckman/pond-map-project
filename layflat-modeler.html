@@ -399,6 +399,16 @@
         <canvas id="pressureChart"></canvas>
       </div>
     </section>
+
+    <section class="section-card" id="elev-chart-section" style="display:none;">
+      <h3>Elevation Profile and Pump Location</h3>
+      <p class="inline-help" style="margin-top:-6px;">
+        Elevation along the line (ft) with black dots at pump locations. X-axis is distance in miles.
+      </p>
+      <div class="chart-box">
+        <canvas id="elevationChart"></canvas>
+      </div>
+    </section>
   </main>
 
   <footer class="site-footer" role="contentinfo">
@@ -759,7 +769,12 @@
     const elChartSection = document.getElementById('chart-section');
     const chartCanvas = document.getElementById('pressureChart');
 
+    // Elevation chart DOM
+    const elElevChartSection = document.getElementById('elev-chart-section');
+    const elevChartCanvas = document.getElementById('elevationChart');
+ 
     let chartInstance = null;
+    let elevChartInstance = null;
     let mapInstance = null;
     let pathLayer = null;
     let pumpLayer = null;
@@ -1025,6 +1040,9 @@
       const finalPressure = pressures.length ? pressures[pressures.length-1] : 0;
       renderResults(manualDistFt[manualDistFt.length-1]||0, (window.__lastUsedPsiLossPer100||0), finalPressure, manualPumps.length, (window.__lastWarnings||[]), distancesForChart, pressures, 0);
 
+      // Elevation chart update (manual mode)
+      renderElevationChart(manualDistFt, manualElevFt, manualPumps);
+ 
       // Persist last run for report with manual selection
       window.__modelerLastRun = window.__modelerLastRun || {};
       window.__modelerLastRun.profile = { distances: distancesForChart, pressures };
@@ -1079,9 +1097,9 @@
     }
 
     function renderChart(distances, pressures, minSuction) {
-      if (chartInstance) { 
-        chartInstance.destroy(); 
-        chartInstance = null; 
+      if (chartInstance) {
+        chartInstance.destroy();
+        chartInstance = null;
       }
       
       // Ensure we have valid data arrays
@@ -1097,11 +1115,6 @@
       
       // Create labels
       const labels = chartDistances.map(d => Number(d).toFixed(0));
-      
-      console.log('Chart data:', {
-        labels: labels.length,
-        pressures: chartPressures.length
-      });
       
       chartInstance = new Chart(chartCanvas.getContext('2d'), {
         type: 'line',
@@ -1140,6 +1153,76 @@
             legend: {
               display: true
             }
+          }
+        }
+      });
+    }
+
+    // Render Elevation Profile with pump markers
+    function renderElevationChart(distFt, elevFt, pumps) {
+      // Destroy previous
+      if (elevChartInstance) {
+        try { elevChartInstance.destroy(); } catch {}
+        elevChartInstance = null;
+      }
+      if (!Array.isArray(distFt) || !Array.isArray(elevFt) || distFt.length === 0 || elevFt.length === 0) return;
+
+      // Build labels in miles
+      const miles = distFt.map(d => (Number(d) / 5280));
+      const labels = miles.map(m => m.toFixed(2));
+
+      // Line dataset (elevation)
+      const lineData = elevFt.slice(0, Math.min(distFt.length, elevFt.length));
+
+      // Pump markers as scatter at their mile positions
+      const pumpPoints = Array.isArray(pumps) ? pumps.map(p => {
+        const idx = Math.max(0, Math.min(distFt.length - 1, Number(p.index) || 0));
+        return { x: miles[idx].toFixed(2), y: elevFt[idx] };
+      }) : [];
+
+      // Ensure section visible
+      if (elElevChartSection) elElevChartSection.style.display = 'block';
+
+      elevChartInstance = new Chart(elevChartCanvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Elevation (ft)',
+              data: lineData,
+              borderColor: 'rgba(11,95,255,0.85)',
+              backgroundColor: 'rgba(11,95,255,0.20)',
+              pointRadius: 0,
+              tension: 0.25
+            },
+            {
+              label: 'Pump',
+              type: 'scatter',
+              data: pumpPoints,
+              pointBackgroundColor: '#000',
+              pointBorderColor: '#000',
+              pointRadius: 6,
+              showLine: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          parsing: false, // we feed category labels for x
+          scales: {
+            x: {
+              title: { display: true, text: 'Line Distance (miles)' },
+              type: 'category'
+            },
+            y: {
+              title: { display: true, text: 'Elevation (ft)' },
+              beginAtZero: false
+            }
+          },
+          plugins: {
+            legend: { display: true }
           }
         }
       });
@@ -1641,6 +1724,9 @@
 
       // Results + chart
       renderResults(totalFt, usedPsiLossPer100, auto.finalPressure, auto.pumps.length, warnings, distancesForChart, pressures, minSuction);
+
+      // Elevation chart update (auto/other modes)
+      renderElevationChart(distFt, elevationsFt, auto.pumps);
     }
 
     document.getElementById('run-calc').addEventListener('click', runCalc);
@@ -1914,6 +2000,8 @@
       // Hide previous results/chart until the next run completes
       elResults.style.display = 'none';
       elChartSection.style.display = 'none';
+      if (elElevChartSection) elElevChartSection.style.display = 'none';
+      if (elevChartInstance) { try { elevChartInstance.destroy(); } catch {} elevChartInstance = null; }
       // Keep map section visible but clear pumps so user sees path without stale boosts
       if (pumpLayer) { try { pumpLayer.clearLayers(); } catch {} }
       // Disable report and clear last run to avoid stale report generation
