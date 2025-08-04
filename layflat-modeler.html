@@ -1194,7 +1194,7 @@
               borderColor: 'rgba(11,95,255,0.85)',
               backgroundColor: 'rgba(11,95,255,0.20)',
               pointRadius: 0,
-              tension: 0.25
+              tension: 0.15
             },
             {
               label: 'Pump',
@@ -1210,7 +1210,7 @@
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          parsing: false, // we feed category labels for x
+          parsing: false,
           scales: {
             x: {
               title: { display: true, text: 'Line Distance (miles)' },
@@ -1223,6 +1223,9 @@
           },
           plugins: {
             legend: { display: true }
+          },
+          elements: {
+            line: { spanGaps: true }  // ensure line draws across full dataset
           }
         }
       });
@@ -2011,9 +2014,10 @@
     }
 
     // Whenever a user changes inputs that affect hydraulics, just clear derived UI (no auto run)
+    // Note: elPlacementStrategy no longer exists in this manual-only app.
     const hydraulicInputs = [
       elFlowBpm, elHoseSize, elSourcePsi, elMidlinePsi,
-      elMaxHose, elManualPsi100, elPlacementStrategy, elHoseRuns
+      elMaxHose, elManualPsi100, /* elPlacementStrategy, */ elHoseRuns
     ];
     hydraulicInputs.forEach(inp => {
       if (!inp) return;
