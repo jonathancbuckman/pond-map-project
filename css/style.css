@@ -453,8 +453,11 @@ body {
 .footer-nav {
     display: flex;
     gap: 10px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap; /* keep items on one line */
     align-items: center;
+    overflow-x: auto;  /* allow horizontal scroll if viewport is too narrow */
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
 }
 .footer-link {
     display: inline-block;
