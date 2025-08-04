@@ -358,6 +358,7 @@
         <button id="run-calc" class="btn">Run Calculation</button>
         <button id="reset-form" class="btn secondary">Reset</button>
         <button id="generate-report" class="btn secondary" title="Open printable report in a new tab" disabled>Generate Report</button>
+        <button id="download-excel" class="btn secondary" title="Download final results to Excel (.xlsx)" disabled>Download Excel</button>
       </div>
     </section>
 
@@ -448,6 +449,9 @@
   <!-- Chart.js for pressure plot -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
  
+  <!-- SheetJS (XLSX) for Excel export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js"></script>
+
   <!-- Lightweight client-side gate for Resume link -->
   <script>
     (function(){
@@ -1394,12 +1398,14 @@
 
       elChartSection.style.display = 'block';
       renderChart(distances, pressures, minSuction);
-
-      // Enable report button now that we have a successful run
+ 
+      // Enable report and excel buttons now that we have a successful run
       const reportBtn = document.getElementById('generate-report');
       if (reportBtn) reportBtn.disabled = false;
-
-      // Store the latest run dataset on window for report generation
+      const excelBtn = document.getElementById('download-excel');
+      if (excelBtn) excelBtn.disabled = false;
+ 
+      // Store the latest run dataset on window for report generation and exports
       window.__modelerLastRun = {
         flowBpm: Number(elFlowBpm.value),
         hoseIn: Number(elHoseSize.value),
