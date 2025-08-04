@@ -451,10 +451,11 @@ body {
     z-index: 1100;                /* Above map but below modal (modal uses 2000) */
 }
 .footer-nav {
-    display: flex;
+    display: inline-flex;        /* inline-flex prevents full-width line breaks at container edge */
     gap: 10px;
     align-items: center;
     flex-wrap: nowrap;           /* keep items on one line */
+    white-space: nowrap;         /* prevent internal wrapping */
     overflow-x: auto;            /* allow horizontal scroll instead of wrapping */
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
