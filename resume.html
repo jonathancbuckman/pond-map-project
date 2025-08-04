@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Resume — Jonathan Buckman</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta name="msapplication-TileColor" content="#da532c">
+  <meta name="theme-color" content="#ffffff">
+  <style>
+    .resume-wrap {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 14px 12px 80px;
+      font-family: 'ISOCPEUR', Arial, sans-serif;
+    }
+    .resume-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px 14px;
+      padding: 10px 0 12px;
+      border-bottom: 1px solid #e5e5e5;
+      background: #fff;
+    }
+    .resume-title {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: .2px;
+      color: #111;
+    }
+    .resume-sub {
+      color: #555;
+      font-size: 13px;
+    }
+    .section {
+      background: #fff;
+      border: 1px solid #e5e5e5;
+      border-radius: 10px;
+      padding: 14px;
+      margin-top: 14px;
+    }
+    .section h2 {
+      margin: 0 0 10px 0;
+      font-size: 18px;
+      color: #222;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 14px;
+    }
+    @media (max-width: 700px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+    .item {
+      margin-bottom: 8px;
+    }
+    .item h3 {
+      margin: 0 0 4px;
+      font-size: 16px;
+    }
+    .meta {
+      color: #666;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+    .bullets {
+      margin: 0;
+      padding-left: 18px;
+      color: #222;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .chip {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #eef2ff;
+      border: 1px solid #d8ddff;
+      color: #222;
+      font-weight: 600;
+    }
+    .contact {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      align-items: center;
+      font-size: 14px;
+    }
+    .contact a { color: #0b5fff; text-decoration: none; }
+    .contact a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <main class="resume-wrap" role="main">
+    <header class="resume-header" role="banner">
+      <h1 class="resume-title">Jonathan Buckman</h1>
+      <div class="resume-sub contact">
+        <span>Oklahoma, USA</span>
+        <span>•</span>
+        <a href="mailto:jonathancbuckman@gmail.com">jonathancbuckman@gmail.com</a>
+        <span>•</span>
+        <a href="index.html">Frac Pond Survey Map</a>
+      </div>
+    </header>
+
+    <section class="section">
+      <h2>Executive Summary</h2>
+      <p>
+        Results-driven hydrographics/GIS professional with experience in bathymetric surveying,
+        volumetrics, hydraulic modeling, and geospatial visualization. Built an interactive Oklahoma
+        frac pond survey platform with Leaflet, charting, and custom modeling tools to aid operational
+        planning. Focus on accuracy, clarity, and operational usability.
+      </p>
+      <div class="chips">
+        <span class="chip">Bathymetry</span>
+        <span class="chip">Hydraulic Modeling</span>
+        <span class="chip">Leaflet / Web GIS</span>
+        <span class="chip">GeoJSON / KML</span>
+        <span class="chip">Charting / Reporting</span>
+        <span class="chip">Field Data QA/QC</span>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Core Skills</h2>
+      <div class="grid-2">
+        <div class="item">
+          <h3>Hydraulics & Survey</h3>
+          <ul class="bullets">
+            <li>Pond bathymetry, stage–volume curves, maximum depth determination</li>
+            <li>Layflat hose pressure-loss estimation, booster placement strategies</li>
+            <li>Elevation sampling and profiles along pipeline routes</li>
+          </ul>
+        </div>
+        <div class="item">
+          <h3>Geospatial & Web</h3>
+          <ul class="bullets">
+            <li>Leaflet, tiled basemaps, custom overlay panes, label rendering</li>
+            <li>GeoJSON ingestion, KML parsing, large dataset performance</li>
+            <li>Interactive charts (Chart.js, SVG) and printable reports</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Selected Projects</h2>
+      <div class="item">
+        <h3>Oklahoma Frac Pond Survey Map</h3>
+        <div class="meta">Leaflet, custom overlays, PLSS, counties, performance-optimized labeling</div>
+        <ul class="bullets">
+          <li>Mobile-friendly pond viewer with stage–volume tables and dynamic popups.</li>
+          <li>PLSS township/section overlays and county labels on dedicated panes for clarity.</li>
+          <li>Coordinate search, email obfuscation, and welcome modal UX for onboarding.</li>
+        </ul>
+      </div>
+      <div class="item">
+        <h3>Layflat Hydraulic Modeler</h3>
+        <div class="meta">Client-side KML parsing, elevation sampling, pressure profile charting</div>
+        <ul class="bullets">
+          <li>Manual midline pump placement with live discharge editing and profile recompute.</li>
+          <li>Robust elevation API fallback with CORS-safe proxies and JSONP reserve.</li>
+          <li>Printable report with inline SVG for portable sharing.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Experience</h2>
+      <div class="item">
+        <h3>Hydrographic/GIS Specialist</h3>
+        <div class="meta">Independent • Oklahoma • YYYY–Present</div>
+        <ul class="bullets">
+          <li>Surveyed and processed pond bathymetry; produced operational volume tables.</li>
+          <li>Modeled layflat hydraulics to inform pump setpoints and booster placement.</li>
+          <li>Delivered web-based visualization and reporting tools for stakeholders.</li>
+        </ul>
+      </div>
+      <!-- Add more detailed roles as needed -->
+    </section>
+
+    <section class="section">
+      <h2>Education & Certifications</h2>
+      <ul class="bullets">
+        <li>[Degree / Program], [Institution]</li>
+        <li>[Relevant certifications]</li>
+      </ul>
+    </section>
+
+    <section class="section">
+      <h2>Technologies</h2>
+      <div class="chips">
+        <span class="chip">Leaflet</span>
+        <span class="chip">JavaScript</span>
+        <span class="chip">Chart.js</span>
+        <span class="chip">GeoJSON / KML</span>
+        <span class="chip">GIS Data Processing</span>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Contact</h2>
+      <p class="contact">
+        Email: <a href="mailto:jonathancbuckman@gmail.com">jonathancbuckman@gmail.com</a>
+        <span>•</span>
+        Project: <a href="index.html">Frac Pond Survey Map</a>
+      </p>
+    </section>
+  </main>
+
+  <footer class="site-footer" role="contentinfo">
+    <nav class="footer-nav" aria-label="Footer">
+      <a class="footer-link" href="index.html">Home</a>
+      <a class="footer-link" href="resume.html" aria-current="page">Resume</a>
+      <a class="footer-link" href="layflat-modeler.html">Layflat Hydraulic Modeler</a>
+    </nav>
+  </footer>
+</body>
+</html>
