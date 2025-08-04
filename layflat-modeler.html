@@ -358,6 +358,7 @@
         <button id="run-calc" class="btn">Run Calculation</button>
         <button id="reset-form" class="btn secondary">Reset</button>
         <button id="generate-report" class="btn secondary" title="Open printable report in a new tab" disabled>Generate Report</button>
+        <button id="download-csv" class="btn secondary" title="Download hydraulic data as CSV" disabled>Download CSV</button>
       </div>
     </section>
 
@@ -921,9 +922,11 @@
       const manualListEl = document.getElementById('manual-pump-list');
       if (manualListEl) manualListEl.innerHTML = '';
 
-      // Disable report button and clear last run/report state
+      // Disable report/CSV buttons and clear last run/report state
       const reportBtn = document.getElementById('generate-report');
       if (reportBtn) reportBtn.disabled = true;
+      const csvBtn = document.getElementById('download-csv');
+      if (csvBtn) csvBtn.disabled = true;
       try {
         delete window.__modelerLastRun;
         delete window.__lastPumps;
@@ -1416,6 +1419,173 @@
 
     // [Removed] pump curve helpers and families (manual mode only)
 
+    // Build CSV with detailed hydraulics per your spec.
+    // Rows:
+    // - One row per base vertex normally
+    // - At pump vertices: include two rows (pre, post). Pre row uses upstream segment terms (i-1→i).
+    //   Post row has zero seg terms (instantaneous jump).
+    function buildHydraulicsCsv(state, distFt, elevFt, pumps, usedPsiLossPer100) {
+      try {
+        const lossPerFt = Number(usedPsiLossPer100 || 0) / 100.0;
+        const n = Math.min(
+          Array.isArray(distFt) ? distFt.length : 0,
+          Array.isArray(elevFt) ? elevFt.length : 0
+        );
+        if (!n || n < 1) throw new Error('No profile points available');
+
+        // Build a quick lookup for pump by index (allow multiple? assume 0/1 per index)
+        const pumpByIndex = Object.create(null);
+        if (Array.isArray(pumps)) {
+          pumps.forEach(p => {
+            const idx = Number(p.index);
+            if (Number.isInteger(idx) && idx >= 0 && idx < n) {
+              // Store discharge and inlet if available
+              pumpByIndex[idx] = {
+                discharge: Number(p.discharge || 0),
+                inlet: (typeof p.pressureBefore === 'number') ? Number(p.pressureBefore) : null
+              };
+            }
+          });
+        }
+
+        // Recompute pressures across base vertices (same as profile logic without duplicate-x emit)
+        let p = Number(state?.sourcePsi || 0);
+        const rows = [];
+        const toMiles = ft => Number(ft || 0) / 5280;
+        const toCsv = v => {
+          if (v === null || v === undefined) return '';
+          if (typeof v === 'number' && !Number.isFinite(v)) return '';
+          return String(v);
+        };
+
+        // Header with inputs snapshot (as commented rows) + column header
+        const headerLines = [];
+        headerLines.push(`# flow_bpm,${toCsv(state?.flowBpm)}`);
+        headerLines.push(`# hose_in,${toCsv(state?.hoseIn)}`);
+        headerLines.push(`# hose_runs,${toCsv(state?.hoseRuns)}`);
+        headerLines.push(`# psi_loss_per_100,${toCsv(state?.results?.usedPsiLossPer100 ?? usedPsiLossPer100)}`);
+        headerLines.push(`# path_dir,${toCsv(state?.pathDir)}`);
+        headerLines.push('index,distance_ft,distance_miles,elevation_ft,pressure_psi,seg_len_ft,elev_delta_ft,elev_delta_psi,friction_psi,is_pump,pump_inlet_psi,pump_discharge_psi');
+
+        // Seed i=0 row (no segment terms)
+        {
+          const i = 0;
+          const row = {
+            index: i,
+            distance_ft: Number(distFt[i] || 0),
+            distance_miles: toMiles(distFt[i] || 0),
+            elevation_ft: Number(elevFt[i] || 0),
+            pressure_psi: p,
+            seg_len_ft: 0,
+            elev_delta_ft: 0,
+            elev_delta_psi: 0,
+            friction_psi: 0,
+            is_pump: '',
+            pump_inlet_psi: '',
+            pump_discharge_psi: ''
+          };
+          // If pump exists exactly at 0, emit pre and post rows
+          if (pumpByIndex[i]) {
+            // Pre row at i (upstream segment doesn’t exist; keep zeros)
+            rows.push(row);
+            // Post row at i (jump)
+            rows.push({
+              ...row,
+              pressure_psi: pumpByIndex[i].discharge,
+              is_pump: 'post',
+              pump_inlet_psi: toCsv(pumpByIndex[i].inlet ?? p),
+              pump_discharge_psi: toCsv(pumpByIndex[i].discharge)
+            });
+            p = pumpByIndex[i].discharge;
+          } else {
+            rows.push(row);
+          }
+        }
+
+        for (let i = 1; i < n; i++) {
+          const segLen = Number(distFt[i] - distFt[i-1] || 0);
+          const dhFt = Number(elevFt[i] - elevFt[i-1] || 0);
+          const elevDeltaPsi = -dhFt * PSI_PER_FOOT_WATER;
+          const frictionPsi = lossPerFt * segLen;
+
+          // If a pump exists exactly at i, emit a pre row (upstream segment i-1→i),
+          // then a post row (jump with zeros for segment terms), then continue downstream
+          if (pumpByIndex[i]) {
+            // Pre row at i (before jump): current p includes upstream segment effects
+            const pBefore = p + elevDeltaPsi - frictionPsi;
+            rows.push({
+              index: i,
+              distance_ft: Number(distFt[i]),
+              distance_miles: toMiles(distFt[i]),
+              elevation_ft: Number(elevFt[i]),
+              pressure_psi: pBefore,
+              seg_len_ft: segLen,
+              elev_delta_ft: dhFt,
+              elev_delta_psi: elevDeltaPsi,
+              friction_psi: frictionPsi,
+              is_pump: 'pre',
+              pump_inlet_psi: toCsv(pumpByIndex[i].inlet ?? pBefore),
+              pump_discharge_psi: toCsv(pumpByIndex[i].discharge)
+            });
+
+            // Post row at i (jump): instantaneous change to discharge; zero segment terms
+            const pAfter = Number(pumpByIndex[i].discharge);
+            rows.push({
+              index: i,
+              distance_ft: Number(distFt[i]),
+              distance_miles: toMiles(distFt[i]),
+              elevation_ft: Number(elevFt[i]),
+              pressure_psi: pAfter,
+              seg_len_ft: 0,
+              elev_delta_ft: 0,
+              elev_delta_psi: 0,
+              friction_psi: 0,
+              is_pump: 'post',
+              pump_inlet_psi: toCsv(pumpByIndex[i].inlet ?? pBefore),
+              pump_discharge_psi: toCsv(pumpByIndex[i].discharge)
+            });
+
+            // Set p to post value for downstream propagation to i+1
+            p = pAfter;
+          } else {
+            // Normal vertex: apply upstream segment and emit single row
+            p = p + elevDeltaPsi - frictionPsi;
+            rows.push({
+              index: i,
+              distance_ft: Number(distFt[i]),
+              distance_miles: toMiles(distFt[i]),
+              elevation_ft: Number(elevFt[i]),
+              pressure_psi: p,
+              seg_len_ft: segLen,
+              elev_delta_ft: dhFt,
+              elev_delta_psi: elevDeltaPsi,
+              friction_psi: frictionPsi,
+              is_pump: '',
+              pump_inlet_psi: '',
+              pump_discharge_psi: ''
+            });
+          }
+        }
+
+        // Serialize to CSV text
+        const escape = (s) => {
+          const t = String(s);
+          if (/[",\n]/.test(t)) return '"' + t.replace(/"/g,'""') + '"';
+          return t;
+        };
+        const lines = headerLines.concat(
+          rows.map(r => [
+            r.index, r.distance_ft, r.distance_miles, r.elevation_ft, r.pressure_psi,
+            r.seg_len_ft, r.elev_delta_ft, r.elev_delta_psi, r.friction_psi,
+            r.is_pump, r.pump_inlet_psi, r.pump_discharge_psi
+          ].map(escape).join(','))
+        );
+        return lines.join('\n');
+      } catch (e) {
+        throw e;
+      }
+    }
+
     async function readKmlOrKmz(file) {
       const name = (file?.name || '').toLowerCase();
       if (name.endsWith('.kml')) {
@@ -1490,10 +1660,12 @@
       elChartSection.style.display = 'block';
       renderChart(distances, pressures, minSuction);
   
-      // Enable report button now that we have a successful run
+      // Enable report/CSV buttons now that we have a successful run
       const reportBtn = document.getElementById('generate-report');
       if (reportBtn) reportBtn.disabled = false;
-  
+      const csvBtn = document.getElementById('download-csv');
+      if (csvBtn) csvBtn.disabled = false;
+ 
       // Store the latest run dataset on window for report generation
       window.__modelerLastRun = {
         flowBpm: Number(elFlowBpm.value),
@@ -2018,7 +2190,40 @@
     if (reportBtn) {
       reportBtn.addEventListener('click', openReport);
     }
-    // Wire Excel button (bind once at load)
+
+    // --- Download CSV wiring ---
+    const csvBtn = document.getElementById('download-csv');
+    if (csvBtn) {
+      csvBtn.addEventListener('click', () => {
+        try {
+          if (!window.__modelerLastRun) {
+            alert('No run data available. Run a calculation first.');
+            return;
+          }
+          const state = window.__modelerLastRun;
+          // Build CSV from the current manual state so it reflects latest edits/drags
+          const csv = buildHydraulicsCsv(
+            state,
+            Array.isArray(window.manualDistFt) ? window.manualDistFt : (state.baseDistancesFt || []),
+            Array.isArray(window.manualElevFt) ? window.manualElevFt : (state.elevationsFt || []),
+            Array.isArray(window.manualPumps) ? window.manualPumps : (state.pumpsSummary || []),
+            Number(state.results?.usedPsiLossPer100 || window.__lastUsedPsiLossPer100 || 0)
+          );
+          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          const ts = new Date().toISOString().replace(/[:.]/g,'-');
+          a.href = url;
+          a.download = `layflat_hydraulics_${ts}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        } catch (e) {
+          alert('CSV generation failed: ' + (e?.message || e));
+        }
+      });
+    }
  
     // Wire Retry Elevations button
     const __retryBtn = document.getElementById('retry-elev');
@@ -2067,9 +2272,11 @@
 
       // Keep map section visible but clear pumps so user sees path without stale boosts
       if (pumpLayer) { try { pumpLayer.clearLayers(); } catch {} }
-      // Disable report and clear last run to avoid stale report generation
+      // Disable report/CSV and clear last run to avoid stale export
       const reportBtn = document.getElementById('generate-report');
       if (reportBtn) reportBtn.disabled = true;
+      const csvBtn = document.getElementById('download-csv');
+      if (csvBtn) csvBtn.disabled = true;
       delete window.__modelerLastRun;
     }
 
@@ -2102,6 +2309,8 @@
       elChartSection.style.display = 'none';
       const reportBtn = document.getElementById('generate-report');
       if (reportBtn) reportBtn.disabled = true;
+      const csvBtn = document.getElementById('download-csv');
+      if (csvBtn) csvBtn.disabled = true;
       delete window.__modelerLastRun;
 
       if (chartInstance) { try { chartInstance.destroy(); } catch {} chartInstance = null; }
