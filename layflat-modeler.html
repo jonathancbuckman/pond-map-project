@@ -1101,6 +1101,9 @@
       // Keep __modelerLastRun synchronized for report
       window.__modelerLastRun = window.__modelerLastRun || {};
       window.__modelerLastRun.profile = { distances: distancesForChart, pressures };
+      // Also persist the elevation profile (ft) aligned to dist indices for the report
+      window.__modelerLastRun.elevationsFt = Array.isArray(manualElevFt) ? manualElevFt.slice() : [];
+      window.__modelerLastRun.baseDistancesFt = Array.isArray(manualDistFt) ? manualDistFt.slice() : [];
       window.__modelerLastRun.results = window.__modelerLastRun.results || {};
       window.__modelerLastRun.results.finalPressure = finalPressure;
       window.__modelerLastRun.pumpsSummary = sortedForReport;
@@ -1397,6 +1400,9 @@
           warnings: [...warnings]
         },
         profile: { distances, pressures },
+        // Elevation series and base distances for the elevation chart in the report
+        elevationsFt: Array.isArray(manualElevFt) ? manualElevFt.slice() : [],
+        baseDistancesFt: Array.isArray(manualDistFt) ? manualDistFt.slice() : [],
         pumpsSummary: (window.__lastPumps || []),
         placementStrategy: 'manual'
       };
@@ -1581,6 +1587,11 @@
       const pressures = state.profile.pressures || [];
       const svg = buildSimplePressureSvg(distances, pressures, state.minSuction);
 
+      // Elevation profile inputs
+      const elevDistancesFt = Array.isArray(state.baseDistancesFt) && state.baseDistancesFt.length ? state.baseDistancesFt : distances;
+      const elevationsFt = Array.isArray(state.elevationsFt) ? state.elevationsFt : [];
+      const elevSvg = elevationsFt.length && elevDistancesFt.length ? buildSimpleElevationSvg(elevDistancesFt, elevationsFt, state.pumpsSummary || []) : '<div class="chart" style="display:flex;align-items:center;justify-content:center;color:#666;">No elevation data</div>';
+
       const runsLabel = state.hoseRuns ? (state.hoseRuns === 2 ? 'Dual (parallel)' : 'Single') : 'Single';
       return `
         <!doctype html>
@@ -1624,6 +1635,11 @@
               <div class="card">
                 <div class="section-h">Pressure Profile</div>
                 <div class="chart">${svg}</div>
+              </div>
+
+              <div class="card" style="margin-top:10px;">
+                <div class="section-h">Elevation Profile</div>
+                <div class="chart">${elevSvg}</div>
                 ${state.results.warnings && state.results.warnings.length ? `
                   <div class="section-h" style="margin-top:10px;">Warnings</div>
                   <ul class="note">${state.results.warnings.map(w => `<li>${w}</li>`).join('')}</ul>
