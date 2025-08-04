@@ -1167,23 +1167,19 @@
       }
       if (!Array.isArray(distFt) || !Array.isArray(elevFt) || distFt.length === 0 || elevFt.length === 0) return;
 
-      // Build labels in miles
+      // Build labels in miles, but LIMIT the number of unique category labels to avoid duplicates causing jumps.
+      // Use one label per point, preserving order, and do NOT round for labels; let formatter handle display.
       const miles = distFt.map(d => (Number(d) / 5280));
-      const labels = miles.map(m => m.toFixed(2));
+      const labels = miles.map(m => m); // raw numeric; displayed via ticks callback
 
-      // Build the line series aligned to category labels.
-      // Chart.js category scale expects data points as objects with x equal to the label string.
+      // Build the line series aligned by index (use index mode with category scale)
       const n = Math.min(distFt.length, elevFt.length);
-      const lineData = [];
-      for (let i = 0; i < n; i++) {
-        const xLabel = miles[i].toFixed(2);
-        lineData.push({ x: xLabel, y: Number(elevFt[i]) });
-      }
- 
-      // Pump markers as scatter at their mile positions
+      const lineData = new Array(n).fill(0).map((_, i) => Number(elevFt[i]));
+
+      // Pump markers: target by index on the same category axis (x is the index)
       const pumpPoints = Array.isArray(pumps) ? pumps.map(p => {
-        const idx = Math.max(0, Math.min(distFt.length - 1, Number(p.index) || 0));
-        return { x: miles[idx].toFixed(2), y: Number(elevFt[idx]) };
+        const idx = Math.max(0, Math.min(n - 1, Number(p.index) || 0));
+        return { x: idx, y: Number(elevFt[idx]) };
       }) : [];
 
       // Ensure section visible
@@ -1192,11 +1188,12 @@
       elevChartInstance = new Chart(elevChartCanvas.getContext('2d'), {
         type: 'line',
         data: {
-          labels,
+          // Category labels are indices 0..n-1; we provide raw miles and format in ticks
+          labels: labels.map((_, i) => i),
           datasets: [
             {
               label: 'Elevation (ft)',
-              data: lineData, // [{x:label,y:value}, ...] to match category labels
+              data: lineData, // array of y-values indexed by x=index
               borderColor: 'rgba(11,95,255,0.85)',
               backgroundColor: 'rgba(11,95,255,0.20)',
               pointRadius: 0,
@@ -1205,7 +1202,7 @@
             {
               label: 'Pump',
               type: 'scatter',
-              data: pumpPoints,
+              data: pumpPoints, // [{x:index, y:elev}]
               pointBackgroundColor: '#000',
               pointBorderColor: '#000',
               pointRadius: 6,
@@ -1220,7 +1217,15 @@
           scales: {
             x: {
               title: { display: true, text: 'Line Distance (miles)' },
-              type: 'category'
+              type: 'category',
+              ticks: {
+                callback: (val, idx) => {
+                  const m = miles[idx];
+                  return (m != null) ? m.toFixed(2) : '';
+                },
+                maxRotation: 60,
+                minRotation: 45
+              }
             },
             y: {
               title: { display: true, text: 'Elevation (ft)' },
