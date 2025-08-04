@@ -154,6 +154,7 @@
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
       margin-right: 10px;
+      flex: 0 0 auto;
     }
     @keyframes spin {
       to { transform: rotate(360deg); }
@@ -368,6 +369,12 @@
       </p>
       <div id="modeler-map"></div>
       <div class="inline-help" id="map-hint" style="margin-top:6px;">Path and pump markers will display here after KML processing.</div>
+
+      <div id="elev-retry-wrap" style="display:none; margin-top:8px;">
+        <button id="retry-elev" class="btn secondary">Retry Elevations</button>
+        <span class="inline-help">Elevation sampling failed. Retry will re-fetch elevation and refresh results.</span>
+      </div>
+
       <div id="manual-panel" class="section-card" style="margin-top:10px; display:none;">
         <h3 style="margin-top:0;">Manual Pumps</h3>
         <div class="inline-help" style="margin-top:-6px;">
@@ -424,6 +431,16 @@
       <a id="resume-link" class="footer-link" href="resume.html" data-protected="true">Resume</a>
     </nav>
   </footer>
+
+  <!-- Busy overlay -->
+  <div id="busy-overlay" aria-live="polite" aria-busy="true">
+    <div class="busy-card">
+      <div style="display:flex;align-items:center;justify-content:center;">
+        <div class="spinner" aria-hidden="true"></div>
+        <div class="busy-text">Loading…</div>
+      </div>
+    </div>
+  </div>
  
   <!-- Leaflet JS for map preview -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -467,11 +484,8 @@
     // CORS-safe JSON proxies to bypass missing CORS headers from third-party services.
     // Try in order; some may block or rate-limit.
     const CORS_JSON_PROXIES = [
-      // Use CORS proxies that accept a full absolute URL (no double protocol)
-      // Each entry is an object with: { mode: 'prefix' | 'param', value: string }
-      { mode: 'prefix', value: 'https://r.jina.ai/' },               // fetches target URL as text/json with permissive CORS
-      { mode: 'param',  value: 'https://api.allorigins.win/raw?url=' }, // AllOrigins RAW passthrough
-      { mode: 'prefix', value: 'https://cors.isomorphic-git.org/' }  // isomorphic-git CORS proxy
+      // Keep a single permissive reader proxy as best-effort; others are unreliable/rate-limited.
+      { mode: 'prefix', value: 'https://r.jina.ai/' }
     ];
     const MAX_POINTS = 2000;          // hard cap for safety
     const BATCH_SIZE = 100;           // OpenTopoData batch chunk
@@ -518,6 +532,9 @@
       return headLossFt * PSI_PER_FOOT_WATER;
     }
 
+    // Small helper for retry backoff
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
     // Downsample coordinates to at most maxPoints using even index sampling
     function downsampleLatLngs(latlngs, maxPoints) {
       if (!latlngs || latlngs.length <= maxPoints) return latlngs || [];
@@ -554,17 +571,16 @@
 
     // Fetch elevations for latlngs via OpenTopoData in batches; returns meters array
     async function fetchElevationsOpenTopo(latlngs) {
-      // Strategy (more robust):
-      // 1) Try multiple permissive CORS proxies (works on localhost).
-      // 2) Try direct fetch (works if API provides CORS).
+      // Strategy (hardened):
+      // 1) Try permissive reader proxy (r.jina.ai) with retries.
+      // 2) Try direct fetch (if CORS is ever enabled) with retries.
       // 3) Try JSONP via AllOrigins (last resort).
-      // 4) If all fail, return zeros for the batch to keep UI functioning.
+      // If all fail for a batch, throw to caller so UI can offer Retry instead of silently flattening.
       const elevations = [];
-  
+
       async function fetchJson(url) {
         const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        // Some proxies (e.g., r.jina.ai) may downconvert; try JSON, fallback to text->JSON
         try {
           return await resp.json();
         } catch {
@@ -572,14 +588,11 @@
           try {
             return JSON.parse(txt);
           } catch {
-            // For AllOrigins raw endpoint, the response is the upstream JSON already
-            // If it wasn't valid JSON, surface an error
             throw new Error('Non-JSON response');
           }
         }
       }
-  
-      // JSONP fallback using allorigins JSONP (stable callback delivery)
+
       async function fetchViaJsonp(url) {
         return new Promise((resolve, reject) => {
           const cbName = 'otd_cb_' + Math.random().toString(36).slice(2);
@@ -597,7 +610,6 @@
           };
           window[cbName] = (payload) => {
             try {
-              // allorigins wraps response in { contents: "<raw text>", status: {...} }
               const txt = typeof payload === 'string' ? payload : (payload && payload.contents) || '';
               const data = JSON.parse(txt);
               finish(resolve, data);
@@ -605,61 +617,78 @@
               finish(reject, new Error('JSONP decode error'));
             }
           };
-          // Use allorigins JSONP to fetch target and return raw text
           const jsonpUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&callback=${cbName}`;
           script = document.createElement('script');
           script.src = jsonpUrl;
           script.onerror = () => finish(reject, new Error('JSONP script load error'));
           document.head.appendChild(script);
-          // Safety timeout (10s)
           setTimeout(() => finish(reject, new Error('JSONP timeout')), 10000);
         });
       }
-  
+
+      const MAX_RETRIES = 2;
+
       for (let i = 0; i < latlngs.length; i += BATCH_SIZE) {
         const batch = latlngs.slice(i, i + BATCH_SIZE);
         const locations = batch.map(([lat, lon]) => `${lat.toFixed(6)},${lon.toFixed(6)}`).join('|');
-        // Do not duplicate dataset param; base endpoint already includes dataset path.
         const directUrl = `${OPENTOPODATA_ENDPOINT}?locations=${encodeURIComponent(locations)}`;
-  
+
         let got = null;
-        try {
-          // 1) Try via multiple proxies first to bypass CORS locally
-          let lastProxyErr = null;
-          for (const proxy of CORS_JSON_PROXIES) {
-            try {
-              const proxiedUrl = proxy.mode === 'param'
-                ? (proxy.value + encodeURIComponent(directUrl))
-                : (proxy.value + directUrl); // prefix mode
-              const data = await fetchJson(proxiedUrl);
-              if (data && data.status === 'OK' && Array.isArray(data.results)) {
-                got = data.results.map(r => (r && typeof r.elevation === 'number') ? r.elevation : 0);
-                break;
+        let attempt = 0;
+
+        while (attempt <= MAX_RETRIES && !got) {
+          try {
+            // 1) Try single proxy (r.jina.ai)
+            let lastProxyErr = null;
+            for (const proxy of CORS_JSON_PROXIES) {
+              try {
+                const proxiedUrl = proxy.mode === 'param'
+                  ? (proxy.value + encodeURIComponent(directUrl))
+                  : (proxy.value + directUrl);
+                const data = await fetchJson(proxiedUrl);
+                if (data && data.status === 'OK' && Array.isArray(data.results)) {
+                  got = data.results.map(r => (r && typeof r.elevation === 'number') ? r.elevation : 0);
+                  break;
+                }
+                lastProxyErr = new Error('Proxy returned invalid payload');
+              } catch (e) {
+                lastProxyErr = e;
               }
-              lastProxyErr = new Error('Proxy returned invalid payload');
-            } catch (e) {
-              lastProxyErr = e;
+            }
+            if (!got && lastProxyErr) throw lastProxyErr;
+
+          } catch (proxyErr) {
+            try {
+              // 2) Direct (rarely allowed, but attempt)
+              const data = await fetchJson(directUrl);
+              if (!data || data.status !== 'OK' || !Array.isArray(data.results)) throw new Error('Invalid payload');
+              got = data.results.map(r => (r && typeof r.elevation === 'number') ? r.elevation : 0);
+            } catch (directErr) {
+              try {
+                // 3) JSONP
+                const data = await fetchViaJsonp(directUrl);
+                if (!data || data.status !== 'OK' || !Array.isArray(data.results)) throw new Error('JSONP invalid payload');
+                got = data.results.map(r => (r && typeof r.elevation === 'number') ? r.elevation : 0);
+              } catch (jsonpErr) {
+                if (attempt === MAX_RETRIES) {
+                  // After all retries, throw so caller can surface Retry UI
+                  throw new Error('Elevation batch failed after retries');
+                }
+              }
             }
           }
-          if (!got) throw lastProxyErr || new Error('All proxies failed');
-        } catch (proxyErr) {
-          try {
-            // 2) Try direct without proxy
-            const data = await fetchJson(directUrl);
-            if (!data || data.status !== 'OK' || !Array.isArray(data.results)) throw new Error('Invalid payload');
-            got = data.results.map(r => (r && typeof r.elevation === 'number') ? r.elevation : 0);
-          } catch (directErr) {
-            try {
-              // 3) JSONP last resort
-              const data = await fetchViaJsonp(directUrl);
-              if (!data || data.status !== 'OK' || !Array.isArray(data.results)) throw new Error('JSONP invalid payload');
-              got = data.results.map(r => (r && typeof r.elevation === 'number') ? r.elevation : 0);
-            } catch (jsonpErr) {
-              console.warn('Elevation fetch failed via proxies, direct, and JSONP. Using flat elevation for this batch.', proxyErr, directErr, jsonpErr);
-              got = batch.map(() => 0);
-            }
+
+          if (!got) {
+            await sleep(500 + attempt * 500); // 500ms, then 1000ms
+            attempt++;
           }
         }
+
+        if (!got) {
+          // Should not reach here due to throw above; safeguard
+          throw new Error('Elevation batch failed');
+        }
+
         elevations.push(...got);
       }
       return elevations;
@@ -873,6 +902,18 @@
       if (!latlngs || !latlngs.length) { el.style.display = 'none'; return; }
       el.style.display = 'block';
       el.textContent = `Loaded ${latlngs.length} points • Total distance ~ ${totalFt.toFixed(0)} ft`;
+    }
+
+    function showBusy(msg = 'Loading…') {
+      const ov = document.getElementById('busy-overlay');
+      if (!ov) return;
+      ov.style.display = 'flex';
+      const t = ov.querySelector('.busy-text');
+      if (t) t.textContent = msg;
+    }
+    function hideBusy() {
+      const ov = document.getElementById('busy-overlay');
+      if (ov) ov.style.display = 'none';
     }
 
     function nearestPathIndex(latlngs, latlng) {
@@ -1417,11 +1458,17 @@
 
       // Elevations
       let elevationsM = [];
+      const retryWrap = document.getElementById('elev-retry-wrap');
       try {
+        showBusy('Sampling elevation…');
         elevationsM = await fetchElevationsOpenTopo(dsLatLngs);
+        if (retryWrap) retryWrap.style.display = 'none';
       } catch (e) {
-        warnings.push(`Elevation fetch failed: ${e.message}. Proceeding with flat elevation.`);
+        if (retryWrap) retryWrap.style.display = 'block';
+        warnings.push(`Elevation fetch failed: ${e.message}`);
         elevationsM = dsLatLngs.map(() => 0);
+      } finally {
+        hideBusy();
       }
       const elevationsFt = elevationsM.map(m => m * 3.28084);
 
@@ -1433,6 +1480,8 @@
       manualLatLngs = dsLatLngs;
       manualDistFt = distFt;
       manualElevFt = elevationsFt;
+      // Persist last dsLatLngs for elevation retry
+      window.__lastDsLatLngs = dsLatLngs;
 
       // Determine friction loss we used (for manual recompute reuse)
       window.__lastUsedPsiLossPer100 = usedPsiLossPer100;
@@ -1683,6 +1732,28 @@
     const reportBtn = document.getElementById('generate-report');
     if (reportBtn) {
       reportBtn.addEventListener('click', openReport);
+    }
+
+    // Wire Retry Elevations button
+    const __retryBtn = document.getElementById('retry-elev');
+    if (__retryBtn) {
+      __retryBtn.addEventListener('click', async () => {
+        const coords = window.__lastDsLatLngs;
+        if (!Array.isArray(coords) || !coords.length) return;
+        try {
+          showBusy('Retrying elevation…');
+          const m = await fetchElevationsOpenTopo(coords);
+          const ft = m.map(v => v * 3.28084);
+          manualElevFt = ft;
+          hideBusy();
+          const rw = document.getElementById('elev-retry-wrap');
+          if (rw) rw.style.display = 'none';
+          updateManualProfileAndUI();
+        } catch (e) {
+          hideBusy();
+          alert('Retry failed: ' + e.message);
+        }
+      });
     }
 
     // --- Input-change mechanics: no auto-run; require explicit Run Calculation ---
