@@ -48,11 +48,58 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="js/main.js"></script>
     <footer class="site-footer" role="contentinfo">
-      <nav class="footer-nav" aria-label="Footer">
-        <a class="footer-link" href="index.html">Home</a>
-        <a class="footer-link" href="layflat-modeler.html">Layflat Hydraulic Modeler</a>
-      </nav>
-        <a class="footer-link" href="resume.html">Resume</a>
-    </footer>
-</body>
-</html>
+        <nav class="footer-nav" aria-label="Footer">
+          <a class="footer-link" href="index.html">Home</a>
+          <a class="footer-link" href="layflat-modeler.html">Layflat Hydraulic Modeler</a>
+        </nav>
+          <a id="resume-link" class="footer-link" href="resume.html" data-protected="true">Resume</a>
+      </footer>
+  
+      <script>
+        (function(){
+          // Simple client-side gate. Note: this only deters casual access.
+          const link = document.getElementById('resume-link');
+          if (!link) return;
+  
+          const PASSWORD = 'water2025';
+          const STORAGE_KEY = 'resume_access_granted_v1';
+  
+          function hasAccess() {
+            try { return sessionStorage.getItem(STORAGE_KEY) === 'true'; } catch(_) { return false; }
+          }
+          function grantAccess() {
+            try { sessionStorage.setItem(STORAGE_KEY, 'true'); } catch(_) {}
+          }
+  
+          function promptForPassword() {
+            // Minimal inline prompt for broad browser support
+            const input = window.prompt('Enter password to view the resume:');
+            if (input === null) return false; // user canceled
+            if (input === PASSWORD) {
+              grantAccess();
+              return true;
+            }
+            window.alert('Incorrect password.');
+            return false;
+          }
+  
+          function handleNavigate(ev){
+            // If we already granted in this tab, allow through
+            if (hasAccess()) return;
+            ev.preventDefault();
+            if (promptForPassword()) {
+              // Navigate after success
+              window.location.href = link.getAttribute('href') || 'resume.html';
+            }
+          }
+  
+          link.addEventListener('click', handleNavigate);
+          link.addEventListener('keydown', function(e){
+            if (e.key === 'Enter' || e.key === ' ') {
+              handleNavigate(e);
+            }
+          });
+        })();
+      </script>
+    </body>
+    </html>
