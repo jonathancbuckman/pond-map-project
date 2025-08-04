@@ -124,6 +124,18 @@
     }
     .kv .k { color:#333; font-weight:600; }
     .kv .v { color:#111; font-weight:700; }
+
+    /* Obfuscated contact styling (match site font) */
+    .obf {
+      font-family: 'ISOCPEUR', Arial, sans-serif;
+      cursor: pointer;
+      color: #0b5fff;
+      text-decoration: underline;
+    }
+    .obf:focus {
+      outline: 2px solid #0b5fff66;
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body>
@@ -133,9 +145,15 @@
       <div class="contact">
         <span>Seminole, OK</span>
         <span>•</span>
-        <a href="tel:+15802355129">(580) 235-5129</a>
+        <!-- Obfuscated phone (revealed on click/Enter/Space) -->
+        <a id="obf-phone" href="#" class="obf" rel="nofollow noopener noreferrer"
+           data-a="KzE" data-b="NTgw" data-c="MjM1" data-d="NTEyOQ=="
+           aria-label="phone number (revealed on click)">[phone&nbsp;protected]</a>
         <span>•</span>
-        <a href="mailto:jonathancbuckman@gmail.com">jonathancbuckman@gmail.com</a>
+        <!-- Obfuscated email (same pattern as welcome modal) -->
+        <a id="obf-email-resume" href="#" class="obf" rel="nofollow noopener noreferrer"
+           data-u="am9uYXRoYW5jYnVja21hbg==" data-d="Z21haWw=" data-t="Y29t"
+           aria-label="email address (revealed on click)">[email&nbsp;protected]</a>
         <span>•</span>
         <a href="index.html">Frac Pond Survey Map</a>
       </div>
@@ -329,5 +347,45 @@
       <a class="footer-link" href="layflat-modeler.html">Layflat Hydraulic Modeler</a>
     </nav>
   </footer>
+
+  <script>
+    // Obfuscation reveal logic for phone and email (mirrors welcome modal approach)
+    (function(){
+      function decode(b64){ try { return atob(b64); } catch(_) { return ''; } }
+
+      // Email
+      const e = document.getElementById('obf-email-resume');
+      if (e) {
+        function revealEmail(){
+          const user = decode(e.getAttribute('data-u')||'');
+          const domain = decode(e.getAttribute('data-d')||'');
+          const tld = decode(e.getAttribute('data-t')||'');
+          const email = [user,domain,tld].every(Boolean) ? user + '@' + domain + '.' + tld : '';
+          if (email) e.replaceWith(document.createTextNode(email));
+        }
+        function onKey(ev){ if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); revealEmail(); } }
+        e.setAttribute('href', '#');
+        e.addEventListener('click', function(ev){ ev.preventDefault(); revealEmail(); });
+        e.addEventListener('keydown', onKey);
+      }
+
+      // Phone: store segments as base64 and stitch on interaction
+      const p = document.getElementById('obf-phone');
+      if (p) {
+        function revealPhone(){
+          const a = decode(p.getAttribute('data-a')||''); // +1
+          const b = decode(p.getAttribute('data-b')||''); // 580
+          const c = decode(p.getAttribute('data-c')||''); // 235
+          const d = decode(p.getAttribute('data-d')||''); // 5129
+          const phone = [a,b,c,d].every(Boolean) ? `${a} (${b}) ${c}-${d}` : '';
+          if (phone) p.replaceWith(document.createTextNode(phone));
+        }
+        function onKey(ev){ if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); revealPhone(); } }
+        p.setAttribute('href', '#');
+        p.addEventListener('click', function(ev){ ev.preventDefault(); revealPhone(); });
+        p.addEventListener('keydown', onKey);
+      }
+    })();
+  </script>
 </body>
 </html>
