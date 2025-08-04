@@ -19,7 +19,7 @@
     .resume-header {
       display: flex;
       flex-wrap: wrap;
-      align-items: baseline;
+      align-items: center;
       justify-content: space-between;
       gap: 8px 14px;
       padding: 10px 0 12px;
@@ -28,14 +28,30 @@
     }
     .resume-title {
       margin: 0;
-      font-size: 24px;
+      font-size: 26px;
       font-weight: 800;
       letter-spacing: .2px;
       color: #111;
     }
-    .resume-sub {
+    .contact {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      align-items: center;
+      font-size: 14px;
       color: #555;
-      font-size: 13px;
+    }
+    .contact a { color: #0b5fff; text-decoration: none; }
+    .contact a:hover { text-decoration: underline; }
+    .label {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #eef2ff;
+      border: 1px solid #d8ddff;
+      color: #222;
+      font-weight: 600;
+      font-size: 12px;
     }
     .section {
       background: #fff;
@@ -49,28 +65,28 @@
       font-size: 18px;
       color: #222;
     }
-    .grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px 14px;
-    }
-    @media (max-width: 700px) {
-      .grid-2 { grid-template-columns: 1fr; }
-    }
     .item {
-      margin-bottom: 8px;
+      margin-bottom: 14px;
     }
-    .item h3 {
-      margin: 0 0 4px;
+    .role-head {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 6px 12px;
+      align-items: baseline;
+    }
+    .role-title {
       font-size: 16px;
+      font-weight: 700;
+      margin: 0;
+      color: #111;
     }
-    .meta {
-      color: #666;
+    .role-meta {
       font-size: 12px;
-      margin-bottom: 6px;
+      color: #666;
     }
     .bullets {
-      margin: 0;
+      margin: 6px 0 0 0;
       padding-left: 18px;
       color: #222;
       font-size: 14px;
@@ -91,23 +107,33 @@
       color: #222;
       font-weight: 600;
     }
-    .contact {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px 14px;
-      align-items: center;
-      font-size: 14px;
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 14px;
     }
-    .contact a { color: #0b5fff; text-decoration: none; }
-    .contact a:hover { text-decoration: underline; }
+    @media (max-width: 700px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+    .kv {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+    .kv .k { color:#333; font-weight:600; }
+    .kv .v { color:#111; font-weight:700; }
   </style>
 </head>
 <body>
   <main class="resume-wrap" role="main">
     <header class="resume-header" role="banner">
       <h1 class="resume-title">Jonathan Buckman</h1>
-      <div class="resume-sub contact">
-        <span>Oklahoma, USA</span>
+      <div class="contact">
+        <span>Seminole, OK</span>
+        <span>•</span>
+        <a href="tel:+15802355129">(580) 235-5129</a>
         <span>•</span>
         <a href="mailto:jonathancbuckman@gmail.com">jonathancbuckman@gmail.com</a>
         <span>•</span>
@@ -116,107 +142,183 @@
     </header>
 
     <section class="section">
-      <h2>Executive Summary</h2>
-      <p>
-        Results-driven hydrographics/GIS professional with experience in bathymetric surveying,
-        volumetrics, hydraulic modeling, and geospatial visualization. Built an interactive Oklahoma
-        frac pond survey platform with Leaflet, charting, and custom modeling tools to aid operational
-        planning. Focus on accuracy, clarity, and operational usability.
+      <h2>Professional Summary</h2>
+      <p style="margin:0;">
+        Water Management Consultant and Hydrographic/GIS specialist with 10+ years across Oklahoma assets (STACK/SCOOP/Arkoma).
+        Extensive field-to-planning experience spanning water sourcing, frac water logistics, temporary pipeline design, pit
+        construction, and environmental compliance. Proven cost reductions through vertical integration, optimized transfer design,
+        and contractor management. Builder of practical geospatial tools: interactive frac pond survey map, pump pressure
+        modeler, and reporting workflows. CDL-A, current FAA Part 107 drone pilot.
       </p>
       <div class="chips">
-        <span class="chip">Bathymetry</span>
+        <span class="chip">Water Logistics</span>
+        <span class="chip">Temporary Surface Pipeline Design</span>
         <span class="chip">Hydraulic Modeling</span>
+        <span class="chip">Bathymetry & Volumetrics</span>
         <span class="chip">Leaflet / Web GIS</span>
-        <span class="chip">GeoJSON / KML</span>
-        <span class="chip">Charting / Reporting</span>
-        <span class="chip">Field Data QA/QC</span>
+        <span class="chip">KML / GeoJSON</span>
+        <span class="chip">Field QA/QC</span>
+        <span class="chip">Contractor Management</span>
       </div>
     </section>
 
     <section class="section">
-      <h2>Core Skills</h2>
-      <div class="grid-2">
-        <div class="item">
-          <h3>Hydraulics & Survey</h3>
-          <ul class="bullets">
-            <li>Pond bathymetry, stage–volume curves, maximum depth determination</li>
-            <li>Layflat hose pressure-loss estimation, booster placement strategies</li>
-            <li>Elevation sampling and profiles along pipeline routes</li>
-          </ul>
+      <h2>Experience</h2>
+
+      <div class="item">
+        <div class="role-head">
+          <h3 class="role-title">Founder / Operator — Buckman LLC</h3>
+          <div class="role-meta">2024 – Present • Oklahoma</div>
         </div>
-        <div class="item">
-          <h3>Geospatial & Web</h3>
-          <ul class="bullets">
-            <li>Leaflet, tiled basemaps, custom overlay panes, label rendering</li>
-            <li>GeoJSON ingestion, KML parsing, large dataset performance</li>
-            <li>Interactive charts (Chart.js, SVG) and printable reports</li>
-          </ul>
+        <ul class="bullets">
+          <li>Deliver hydrographic pond evaluations; surveyed 100+ ponds with volumetric analysis for operational planning.</li>
+          <li>Build/install solar-powered monitoring systems with custom web dashboards for real-time water level and asset tracking.</li>
+          <li>Provide clients actionable datasets to optimize transfer operations and reduce downtime risk.</li>
+        </ul>
+      </div>
+
+      <div class="item">
+        <div class="role-head">
+          <h3 class="role-title">Water Consultant — Marathon Oil Company</h3>
+          <div class="role-meta">2016 – 2024 • Oklahoma City, OK</div>
         </div>
+        <ul class="bullets">
+          <li>Directed water logistics for drilling and completions across OK/TX/NM; progressed to Senior Consultant overseeing planning/supervision.</li>
+          <li>Primary liaison with surface owners; negotiated access and secured ROW/permits. Coordinated with GSC, completions, land, and regulatory.</li>
+          <li>Reduced completion water acquisition and transfer costs by ~80% from 2016 EOY via sourcing agreements, vertical integration, and contractor optimization.</li>
+          <li>Supervised field crews (20–30 personnel typical), minimized NPT through pre-job planning, schedule control, and safety program leadership.</li>
+          <li>Designed/evaluated hydraulics for temporary surface pipelines, pump selection, and pit management; used drones and survey methods for planning.</li>
+          <li>3D drafting and design of temporary/permanent transfer skids in SolidWorks/AutoCAD; validated against hydraulic models.</li>
+        </ul>
+      </div>
+
+      <div class="item">
+        <div class="role-head">
+          <h3 class="role-title">Water Management Consultant — Newfield Exploration</h3>
+          <div class="role-meta">Dec 2014 – May 2016 • Oklahoma City, OK</div>
+        </div>
+        <ul class="bullets">
+          <li>Managed construction of HDPE saltwater gathering pipelines in SE Oklahoma, including permitting, ROW, design, materials, vendors, testing, and commissioning.</li>
+          <li>Led fresh-water acquisition and delivery to wellsites in South Central and SE Oklahoma for completions.</li>
+          <li>Coordinated source selection, volume analysis, permitting, and temporary ROW; supervised transfer contractors for planning, setup, and execution.</li>
+          <li>Conducted environmental compliance checks and liner leak detection; ensured adherence to regulatory and company policies.</li>
+          <li>Worked with Facilities leadership to lower acquisition/redistribution costs:
+            <ul class="bullets">
+              <li>Eliminated high-cost third-party purchases by acquiring property with perennial creek access and integrating into distribution network.</li>
+              <li>Constructed/expanded reservoirs on company-controlled land to capture rainfall runoff, banking millions of barrels for future completions.</li>
+              <li>Designed and installed permanent electric pump systems to reduce temporary pumping OPEX.</li>
+            </ul>
+          </li>
+          <li>Software exposure: ArcGIS, AFT Fathom, PIPE-FLO Professional, PUMP-FLO, Excel.</li>
+        </ul>
+      </div>
+
+      <div class="item">
+        <div class="role-head">
+          <h3 class="role-title">Water Management — Continental Resources</h3>
+          <div class="role-meta">2014 • Oklahoma</div>
+        </div>
+        <ul class="bullets">
+          <li>Tracked flowback vs projected frac water demand; planned supplemental purchases and transfers.</li>
+          <li>Reported production volumes from recycling facility batteries; monitored biological treatment and basic water chemistry (pH, conductivity).</li>
+          <li>Coordinated treatment equipment maintenance and sampling; ensured environmental compliance and liner integrity.</li>
+          <li>Coordinated transfer setups and job execution; tracked third-party purchase volumes and policy compliance.</li>
+        </ul>
+      </div>
+
+      <div class="item">
+        <div class="role-head">
+          <h3 class="role-title">Asset Manager / Field Supervisor — Crescent Services</h3>
+          <div class="role-meta">2012 – 2014 • Oklahoma / Texas / Pennsylvania</div>
+        </div>
+        <ul class="bullets">
+          <li>Progressed from Laborer to Asset Manager; hands-on experience laying 10” aluminum and poly pipe, operating pumps, trucks, and heavy equipment.</li>
+          <li>Coordinated/supervised water transfer planning and execution for Drilling/Completions; managed resourcing, permitting, and temporary ROW acquisition.</li>
+          <li>Managed yard operations: equipment inventory, vehicle fleet, and field-level billing; tracked transfer assets across multi-state operations.</li>
+        </ul>
       </div>
     </section>
 
     <section class="section">
       <h2>Selected Projects</h2>
       <div class="item">
-        <h3>Oklahoma Frac Pond Survey Map</h3>
-        <div class="meta">Leaflet, custom overlays, PLSS, counties, performance-optimized labeling</div>
+        <div class="role-head">
+          <h3 class="role-title">Oklahoma Frac Pond Survey Map</h3>
+          <div class="role-meta">Leaflet • PLSS • County overlays • Performance-optimized labeling</div>
+        </div>
         <ul class="bullets">
-          <li>Mobile-friendly pond viewer with stage–volume tables and dynamic popups.</li>
-          <li>PLSS township/section overlays and county labels on dedicated panes for clarity.</li>
-          <li>Coordinate search, email obfuscation, and welcome modal UX for onboarding.</li>
+          <li>Built a mobile-friendly map with bathymetry, stage–volume tables, and dynamic popups.</li>
+          <li>Added PLSS township/section overlays, county labels, and custom panes to maintain click-through on pond polygons.</li>
+          <li>Implemented coordinate search, email-obfuscation, and an onboarding welcome modal.</li>
         </ul>
       </div>
       <div class="item">
-        <h3>Layflat Hydraulic Modeler</h3>
-        <div class="meta">Client-side KML parsing, elevation sampling, pressure profile charting</div>
+        <div class="role-head">
+          <h3 class="role-title">Layflat Hydraulic Modeler</h3>
+          <div class="role-meta">Client-side KML parsing • Elevation sampling • Pressure profile charting</div>
+        </div>
         <ul class="bullets">
-          <li>Manual midline pump placement with live discharge editing and profile recompute.</li>
-          <li>Robust elevation API fallback with CORS-safe proxies and JSONP reserve.</li>
-          <li>Printable report with inline SVG for portable sharing.</li>
+          <li>Manual midline pump placement with live discharge edits; immediate profile recomputation.</li>
+          <li>Resilient elevation fetch with multiple CORS strategies and JSONP fallback for field reliability.</li>
+          <li>Generates printable reports with inline SVG charts suitable for sharing and archiving.</li>
         </ul>
       </div>
     </section>
 
     <section class="section">
-      <h2>Experience</h2>
-      <div class="item">
-        <h3>Hydrographic/GIS Specialist</h3>
-        <div class="meta">Independent • Oklahoma • YYYY–Present</div>
-        <ul class="bullets">
-          <li>Surveyed and processed pond bathymetry; produced operational volume tables.</li>
-          <li>Modeled layflat hydraulics to inform pump setpoints and booster placement.</li>
-          <li>Delivered web-based visualization and reporting tools for stakeholders.</li>
-        </ul>
+      <h2>Skills & Tools</h2>
+      <div class="grid-2">
+        <div>
+          <ul class="bullets">
+            <li>Hydraulic modeling: PIPE-FLO Professional, AFT Fathom</li>
+            <li>Mapping/GIS: ArcGIS, Leaflet, KML/GeoJSON workflows</li>
+            <li>CAD/Design: SolidWorks, AutoCAD (temporary/permanent skids, site layouts)</li>
+          </ul>
+        </div>
+        <div>
+          <ul class="bullets">
+            <li>Data & Reporting: Excel, charting, custom reports</li>
+            <li>Field operations: contractor management, safety leadership, QA/QC checks</li>
+            <li>General: Microsoft Office, Peloton Applications</li>
+          </ul>
+        </div>
       </div>
-      <!-- Add more detailed roles as needed -->
+      <div class="chips">
+        <span class="chip">Water Sourcing & ROW</span>
+        <span class="chip">Pit Construction & Compliance</span>
+        <span class="chip">Pump Selection</span>
+        <span class="chip">Temporary Pipeline Planning</span>
+        <span class="chip">Drone Survey (FAA Part 107)</span>
+      </div>
     </section>
 
     <section class="section">
-      <h2>Education & Certifications</h2>
+      <h2>Education</h2>
+      <div class="item">
+        <div class="role-head">
+          <h3 class="role-title">B.S., Accounting — East Central University</h3>
+          <div class="role-meta">Ada, Oklahoma • Dec 2011</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Licenses & Certifications</h2>
       <ul class="bullets">
-        <li>[Degree / Program], [Institution]</li>
-        <li>[Relevant certifications]</li>
+        <li>Commercial Driver's License (CDL) Class A — State of Oklahoma (with valid DOT Medical)</li>
+        <li>FAA Part 107 Remote Pilot (sUAS)</li>
       </ul>
     </section>
 
     <section class="section">
-      <h2>Technologies</h2>
-      <div class="chips">
-        <span class="chip">Leaflet</span>
-        <span class="chip">JavaScript</span>
-        <span class="chip">Chart.js</span>
-        <span class="chip">GeoJSON / KML</span>
-        <span class="chip">GIS Data Processing</span>
-      </div>
-    </section>
-
-    <section class="section">
-      <h2>Contact</h2>
-      <p class="contact">
-        Email: <a href="mailto:jonathancbuckman@gmail.com">jonathancbuckman@gmail.com</a>
-        <span>•</span>
-        Project: <a href="index.html">Frac Pond Survey Map</a>
+      <h2>References</h2>
+      <p style="margin:0;">
+        Available upon request. Prior supervisors include:
       </p>
+      <ul class="bullets" style="margin-top:6px;">
+        <li>Tom McCormick — Marathon Oil, Facilities Engineer / Team Supervisor</li>
+        <li>Tim Weed — Marathon Oil, Completion Superintendent</li>
+      </ul>
     </section>
   </main>
 
