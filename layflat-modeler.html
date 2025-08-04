@@ -358,7 +358,6 @@
         <button id="run-calc" class="btn">Run Calculation</button>
         <button id="reset-form" class="btn secondary">Reset</button>
         <button id="generate-report" class="btn secondary" title="Open printable report in a new tab" disabled>Generate Report</button>
-        <button id="download-excel" class="btn secondary" title="Download final results to Excel (.xlsx)" disabled>Download Excel</button>
       </div>
     </section>
 
@@ -449,8 +448,6 @@
   <!-- Chart.js for pressure plot -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   
-  <!-- SheetJS (XLSX) for Excel export) - use reliable unpkg fallback -->
-  <script src="https://unpkg.com/xlsx@0.19.3/dist/xlsx.full.min.js" defer onload="window.__xlsxReady=true" onerror="console.error('Failed to load SheetJS XLSX library from unpkg');"></script>
 
   <!-- Lightweight client-side gate for Resume link -->
   <script>
@@ -1398,14 +1395,12 @@
 
       elChartSection.style.display = 'block';
       renderChart(distances, pressures, minSuction);
- 
-      // Enable report and excel buttons now that we have a successful run
+  
+      // Enable report button now that we have a successful run
       const reportBtn = document.getElementById('generate-report');
       if (reportBtn) reportBtn.disabled = false;
-      const excelBtn = document.getElementById('download-excel');
-      if (excelBtn) excelBtn.disabled = false;
- 
-      // Store the latest run dataset on window for report generation and exports
+  
+      // Store the latest run dataset on window for report generation
       window.__modelerLastRun = {
         flowBpm: Number(elFlowBpm.value),
         hoseIn: Number(elHoseSize.value),
@@ -1923,38 +1918,6 @@
       reportBtn.addEventListener('click', openReport);
     }
     // Wire Excel button (bind once at load)
-    const excelBtnInit = document.getElementById('download-excel');
-    if (excelBtnInit) {
-      excelBtnInit.addEventListener('click', async () => {
-        try {
-          // If library not ready, attempt dynamic fallback load once
-          if (!window.XLSX) {
-            // try injecting fallback from jsDelivr if unpkg failed (or vice versa)
-            await (async function ensureXlsx() {
-              if (window.__xlsxEnsureTried) return;
-              window.__xlsxEnsureTried = true;
-              const url = 'https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js';
-              await new Promise((resolve, reject) => {
-                const s = document.createElement('script');
-                s.src = url;
-                s.async = true;
-                s.onload = () => { window.__xlsxReady = true; resolve(); };
-                s.onerror = () => reject(new Error('Fallback SheetJS load failed'));
-                document.head.appendChild(s);
-              }).catch(err => { console.error(err); });
-            })();
-          }
-          if (!window.XLSX) {
-            alert('Excel library could not be loaded (network blocked). You can still use the app; try again later.');
-            return;
-          }
-          window.downloadExcel && window.downloadExcel();
-        } catch (e) {
-          console.error('Excel export failed:', e);
-          alert('Excel export failed');
-        }
-      });
-    }
  
     // Wire Retry Elevations button
     const __retryBtn = document.getElementById('retry-elev');
@@ -1983,105 +1946,6 @@
       });
     }
 
-    // --- Excel export (single sheet) ---
-    // Columns per user request:
-    // index, distance_ft, segment_length_ft, elevation_ft, pressure_psi, pumpAtThisIndex (inlet/discharge if present)
-    window.buildRowsForExcel = function buildRowsForExcel() {
-      const state = window.__modelerLastRun;
-      if (!state || !state.profile || !state.profile.distances || !state.profile.pressures) return [];
-  
-      // Base arrays from last run (downsampled, aligned by index)
-      const baseDist = Array.isArray(state.baseDistancesFt) && state.baseDistancesFt.length ? state.baseDistancesFt : (window.manualDistFt || []);
-      const elevFt = Array.isArray(state.elevationsFt) && state.elevationsFt.length ? state.elevationsFt : (window.manualElevFt || []);
-  
-      // Recompute per-vertex pressure to align with vertices
-      const pumps = (window.manualPumps || []).slice().sort((a,b) => a.index - b.index);
-      const usedPsiLossPer100 = window.__lastUsedPsiLossPer100 || 0;
-      const lossPerFt = usedPsiLossPer100 / 100.0;
-      let p = Number(state.sourcePsi || 0);
-      let nextPumpIdx = 0;
-      const perVertexPressure = new Array(baseDist.length).fill(0);
-      perVertexPressure[0] = p;
-      for (let i = 1; i < baseDist.length; i++) {
-        if (nextPumpIdx < pumps.length && pumps[nextPumpIdx].index === i) {
-          p = Number(pumps[nextPumpIdx].discharge || 0);
-          nextPumpIdx++;
-        }
-        const segLen = baseDist[i] - baseDist[i - 1];
-        const dhFt = (elevFt[i] ?? 0) - (elevFt[i - 1] ?? 0);
-        const elevDeltaPsi = -dhFt * PSI_PER_FOOT_WATER;
-        const frictionPsi = lossPerFt * segLen;
-        p = p + elevDeltaPsi - frictionPsi;
-        perVertexPressure[i] = p;
-      }
-  
-      // Build pump info map with inlet/discharge at indices
-      const pumpMap = Object.create(null);
-      let tempP = Number(state.sourcePsi || 0);
-      let npIdx = 0;
-      for (let i = 1; i < baseDist.length; i++) {
-        if (npIdx < pumps.length && pumps[npIdx].index === i) {
-          pumpMap[i] = { inlet: tempP, discharge: Number(pumps[npIdx].discharge || 0) };
-          tempP = pumpMap[i].discharge;
-          npIdx++;
-        }
-        const segLen = baseDist[i] - baseDist[i - 1];
-        const dhFt = (elevFt[i] ?? 0) - (elevFt[i - 1] ?? 0);
-        const elevDeltaPsi = -dhFt * PSI_PER_FOOT_WATER;
-        const frictionPsi = lossPerFt * segLen;
-        tempP = tempP + elevDeltaPsi - frictionPsi;
-      }
-  
-      const rows = [];
-      for (let i = 0; i < baseDist.length; i++) {
-        const distFt = Number(baseDist[i] || 0);
-        const segLen = i === 0 ? 0 : (Number(baseDist[i] - baseDist[i - 1]) || 0);
-        const elev = Number(elevFt[i] ?? 0);
-        const pres = Number(perVertexPressure[i] ?? 0);
-        let pumpInfo = '';
-        const pm = pumpMap[i];
-        if (pm) pumpInfo = `inlet=${pm.inlet.toFixed(1)}; discharge=${pm.discharge.toFixed(1)}`;
-        rows.push({
-          index: i,
-          distance_ft: distFt,
-          segment_length_ft: segLen,
-          elevation_ft: elev,
-          pressure_psi: pres,
-          pumpAtThisIndex: pumpInfo
-        });
-      }
-      return rows;
-    }
-  
-    window.downloadExcel = function downloadExcel() {
-      try {
-        const rows = buildRowsForExcel();
-        if (!rows.length) {
-          alert('No data to export. Run a calculation first.');
-          return;
-        }
-        const ws = XLSX.utils.json_to_sheet(rows, {
-          header: ['index','distance_ft','segment_length_ft','elevation_ft','pressure_psi','pumpAtThisIndex']
-        });
-        const range = XLSX.utils.decode_range(ws['!ref']);
-        for (let R = range.s.r + 1; R <= range.e.r; ++R) {
-          [['B','#,##0'], ['C','#,##0'], ['D','#,##0'], ['E','0.0']].forEach(([col, fmt]) => {
-            const addr = col + (R + 1);
-            if (ws[addr]) ws[addr].z = fmt;
-          });
-        }
-        ws['!cols'] = [
-          { wch: 7 }, { wch: 12 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 32 }
-        ];
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Segments');
-        XLSX.writeFile(wb, 'layflat-profile.xlsx');
-      } catch (e) {
-        console.error('Excel export threw:', e);
-        alert('Excel export failed: ' + (e?.message || e));
-      }
-    }
-  
     // --- Input-change mechanics: no auto-run; require explicit Run Calculation ---
 
     // Clear derived UI when inputs change to prevent reading stale values
