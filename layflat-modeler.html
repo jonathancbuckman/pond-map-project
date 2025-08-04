@@ -1171,13 +1171,19 @@
       const miles = distFt.map(d => (Number(d) / 5280));
       const labels = miles.map(m => m.toFixed(2));
 
-      // Line dataset (elevation)
-      const lineData = elevFt.slice(0, Math.min(distFt.length, elevFt.length));
-
+      // Build the line series aligned to category labels.
+      // Chart.js category scale expects data points as objects with x equal to the label string.
+      const n = Math.min(distFt.length, elevFt.length);
+      const lineData = [];
+      for (let i = 0; i < n; i++) {
+        const xLabel = miles[i].toFixed(2);
+        lineData.push({ x: xLabel, y: Number(elevFt[i]) });
+      }
+ 
       // Pump markers as scatter at their mile positions
       const pumpPoints = Array.isArray(pumps) ? pumps.map(p => {
         const idx = Math.max(0, Math.min(distFt.length - 1, Number(p.index) || 0));
-        return { x: miles[idx].toFixed(2), y: elevFt[idx] };
+        return { x: miles[idx].toFixed(2), y: Number(elevFt[idx]) };
       }) : [];
 
       // Ensure section visible
@@ -1190,7 +1196,7 @@
           datasets: [
             {
               label: 'Elevation (ft)',
-              data: lineData,
+              data: lineData, // [{x:label,y:value}, ...] to match category labels
               borderColor: 'rgba(11,95,255,0.85)',
               backgroundColor: 'rgba(11,95,255,0.20)',
               pointRadius: 0,
@@ -1225,7 +1231,7 @@
             legend: { display: true }
           },
           elements: {
-            line: { spanGaps: true }  // ensure line draws across full dataset
+            line: { spanGaps: true }
           }
         }
       });
