@@ -850,6 +850,7 @@
     updateManualVisibility();
 
     function resetForm() {
+      // Reset primary inputs to defaults
       elFlowBpm.value = '50';
       elHoseSize.value = '12';
       elSourcePsi.value = '100';
@@ -858,15 +859,71 @@
       document.querySelector('input[name="loss-method"][value="lookup"]').checked = true;
       elManualPsi100.value = '0';
       updateManualVisibility();
+
+      // Hide main sections
       elResults.style.display = 'none';
       elChartSection.style.display = 'none';
       elMapSection.style.display = 'none';
+
+      // Destroy pressure chart instance
       if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+
+      // Destroy elevation chart instance and hide its section
+      if (elevChartInstance) { try { elevChartInstance.destroy(); } catch {} elevChartInstance = null; }
+      if (elElevChartSection) { elElevChartSection.style.display = 'none'; }
+
+      // Tear down map and layers
       if (mapInstance) {
         try { mapInstance.remove(); } catch{}
         mapInstance = null; pathLayer = null; pumpLayer = null;
       }
+
+      // Clear file chooser
       elKmlFile.value = '';
+
+      // Reset manual placement mode and state
+      manualMode = false;
+      manualLatLngs = [];
+      manualDistFt = [];
+      manualElevFt = [];
+      manualPumps = [];
+
+      // Hide manual panel and clear list UI
+      const manualPanelEl = document.getElementById('manual-panel');
+      if (manualPanelEl) manualPanelEl.style.display = 'none';
+      const manualListEl = document.getElementById('manual-pump-list');
+      if (manualListEl) manualListEl.innerHTML = '';
+
+      // Disable report button and clear last run/report state
+      const reportBtn = document.getElementById('generate-report');
+      if (reportBtn) reportBtn.disabled = true;
+      try {
+        delete window.__modelerLastRun;
+        delete window.__lastPumps;
+        delete window.__lastPlacementStrategy;
+        delete window.__lastUsedPsiLossPer100;
+        delete window.__lastWarnings;
+        delete window.__lastDsLatLngs;
+        delete window.__lastPathKey;
+      } catch {}
+
+      // Hide path status and clear text
+      const pathStatus = document.getElementById('path-status');
+      if (pathStatus) { pathStatus.style.display = 'none'; pathStatus.textContent = ''; }
+
+      // Hide warnings and clear list
+      if (elWarningsWrap) elWarningsWrap.style.display = 'none';
+      if (elWarningsList) elWarningsList.innerHTML = '';
+
+      // Hide "Retry Elevations" UI
+      const retryWrap = document.getElementById('elev-retry-wrap');
+      if (retryWrap) retryWrap.style.display = 'none';
+
+      // Also remove any lingering JSONP script tags (defensive)
+      try {
+        const heads = document.querySelectorAll('head script[src*="api.allorigins.win/get"]');
+        heads.forEach(s => s.parentNode && s.parentNode.removeChild(s));
+      } catch {}
     }
     elReset.addEventListener('click', resetForm);
 
