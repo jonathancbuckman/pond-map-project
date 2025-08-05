@@ -710,19 +710,21 @@
     // Removed automatic placement algorithms (minimized/fixed-setpoint). Manual-only app.
 
     // Build pressure profile including placed pumps (clear boost visualization)
-    // Returns an object with distances and pressures arrays aligned 1:1 for Chart.js
+    // Returns an object with distances, pressures, and kinds arrays aligned 1:1 for Chart.js
     function buildProfileWithPumps(distFt, elevFt, sourcePsi, pumps, psiLossPer100) {
       // Build pressure profile for plotting. Do NOT clamp the plotted pressures;
       // only clamp the displayed inlet values at pump markers elsewhere.
       const lossPerFt = psiLossPer100 / 100.0;
       const outDistances = [];
       const outPressures = [];
+      const outKinds = []; // 'normal' | 'pre' | 'post'
       let p = sourcePsi;
       let pumpIdx = 0;
 
       // Seed first point (true simulated pressure)
       outDistances.push(distFt[0]);
       outPressures.push(p);
+      outKinds.push('normal');
 
       for (let i = 1; i < distFt.length; i++) {
         // Check if a pump exists exactly at index i
@@ -730,11 +732,13 @@
           // Add point just before pump (true pressure at this location)
           outDistances.push(distFt[i]);
           outPressures.push(p);
+          outKinds.push('pre');
 
           // Add point just after pump (boosted pressure at same location)
           p = pumps[pumpIdx].discharge;
           outDistances.push(distFt[i]);
           outPressures.push(p);
+          outKinds.push('post');
           pumpIdx++;
         }
 
@@ -748,9 +752,10 @@
         // Add end point of segment (true pressure)
         outDistances.push(distFt[i]);
         outPressures.push(p);
+        outKinds.push('normal');
       }
 
-      return { distances: outDistances, pressures: outPressures };
+      return { distances: outDistances, pressures: outPressures, kinds: outKinds };
     }
 
     // --- DOM refs ---
@@ -1102,20 +1107,21 @@
     }
 
     function computeProfileWithGivenPumps(distFt, elevFt, sourcePsi, pumps, psiLossPer100) {
-      // identical to buildProfileWithPumps but uses provided pumps array; returns {distances, pressures}
+      // identical to buildProfileWithPumps but uses provided pumps array; returns {distances, pressures, kinds}
       const lossPerFt = psiLossPer100 / 100.0;
       const outDistances = [];
       const outPressures = [];
+      const outKinds = [];
       let p = sourcePsi;
       let pumpIdx = 0;
-      outDistances.push(distFt[0]); outPressures.push(p);
+      outDistances.push(distFt[0]); outPressures.push(p); outKinds.push('normal');
       for (let i = 1; i < distFt.length; i++) {
         if (pumpIdx < pumps.length && pumps[pumpIdx].index === i) {
           // Pre at exact vertex
-          outDistances.push(distFt[i]); outPressures.push(p);
+          outDistances.push(distFt[i]); outPressures.push(p); outKinds.push('pre');
           // Post at same vertex (kept for report/CSV exactness)
           p = pumps[pumpIdx].discharge;
-          outDistances.push(distFt[i]); outPressures.push(p);
+          outDistances.push(distFt[i]); outPressures.push(p); outKinds.push('post');
           pumpIdx++;
         }
         const segLen = distFt[i] - distFt[i-1];
@@ -1123,9 +1129,9 @@
         const elevDeltaPsi = -dhFt * PSI_PER_FOOT_WATER;
         const frictionPsi = lossPerFt * segLen;
         p = p + elevDeltaPsi - frictionPsi;
-        outDistances.push(distFt[i]); outPressures.push(p);
+        outDistances.push(distFt[i]); outPressures.push(p); outKinds.push('normal');
       }
-      return { distances: outDistances, pressures: outPressures };
+      return { distances: outDistances, pressures: outPressures, kinds: outKinds };
     }
 
     function recomputeManualInlets() {
@@ -1161,6 +1167,7 @@
       const prof = computeProfileWithGivenPumps(manualDistFt, manualElevFt, Number(elSourcePsi.value), manualPumps, window.__lastUsedPsiLossPer100 || 0);
       const distancesForChart = prof.distances;
       const pressures = prof.pressures;
+      const kinds = prof.kinds;
 
       // Update map markers popups to show true inlet at pump vertex (matches CSV pre-row)
       pumpLayer.clearLayers();
@@ -1188,7 +1195,7 @@
 
       // Results and chart: pumpCount from manual, final outlet from profile tail
       const finalPressure = pressures.length ? pressures[pressures.length-1] : 0;
-      renderResults(manualDistFt[manualDistFt.length-1]||0, (window.__lastUsedPsiLossPer100||0), finalPressure, manualPumps.length, (window.__lastWarnings||[]), distancesForChart, pressures, 0);
+      renderResults(manualDistFt[manualDistFt.length-1]||0, (window.__lastUsedPsiLossPer100||0), finalPressure, manualPumps.length, (window.__lastWarnings||[]), distancesForChart, pressures, 0, kinds);
 
       // Elevation chart update (manual mode)
       renderElevationChart(manualDistFt, manualElevFt, manualPumps);
@@ -1265,7 +1272,7 @@
       }
     }
 
-    function renderChart(distances, pressures, minSuction) {
+    function renderChart(distances, pressures, minSuction, kinds) {
       if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
       if (!Array.isArray(distances) || !Array.isArray(pressures) || !distances.length || !pressures.length) return;
 
@@ -1274,28 +1281,33 @@
       const pts = [];
       const meta = []; // {baseX, kind: 'normal'|'pre'|'post'}
 
-      // Build points and tag pump pre/post pairs:
-      // Pattern in series: [..., pre(x), post(x), downstream(x2) ...]
+      // Access the pump vertex indices captured at renderResults time
+      const pumpSet = (typeof window.__pumpIndexSet === 'object' && window.__pumpIndexSet) ? window.__pumpIndexSet : Object.create(null);
+
+      // If kinds provided and aligned, deterministically tag pre/post/normal.
+      // We still nudge 'post' by +eps and nudge normals that share the same X as a pump pair.
       for (let i = 0; i < n; i++) {
         const x = Number(distances[i]);
         const y = Number(pressures[i]);
+        const k = Array.isArray(kinds) && kinds.length === n ? kinds[i] : null;
 
-        // Detect immediate duplicate-x pair for pump step
-        const isPre = (i + 1 < n) && Number(distances[i + 1]) === x;
-        const isPost = (i > 0) && Number(distances[i - 1]) === x;
-
-        if (isPost) {
-          // This is the post point; shift by epsilon for hover clarity
+        if (k === 'post') {
           pts.push({ x: x + eps, y });
           meta.push({ baseX: x, kind: 'post' });
-        } else if (isPre) {
-          // This is the pre point at exact vertex
+        } else if (k === 'pre') {
           pts.push({ x, y });
           meta.push({ baseX: x, kind: 'pre' });
         } else {
-          // Normal point
-          pts.push({ x, y });
-          meta.push({ baseX: x, kind: 'normal' });
+          // Check neighbors for pump same-x to avoid grouping normals with pump pair at same X
+          const leftIsPumpSameX = (i > 0) && (Array.isArray(kinds) ? (kinds[i-1] === 'pre' || kinds[i-1] === 'post') : false) && Math.abs(Number(distances[i-1]) - x) < 1e-9;
+          const rightIsPumpSameX = (i + 1 < n) && (Array.isArray(kinds) ? (kinds[i+1] === 'pre' || kinds[i+1] === 'post') : false) && Math.abs(Number(distances[i+1]) - x) < 1e-9;
+          if (leftIsPumpSameX || rightIsPumpSameX) {
+            pts.push({ x: x + 0.02, y });
+            meta.push({ baseX: x + 0.02, kind: 'normal' });
+          } else {
+            pts.push({ x, y });
+            meta.push({ baseX: x, kind: 'normal' });
+          }
         }
       }
 
@@ -1322,14 +1334,13 @@
             x: {
               title: { display: true, text: 'Distance (ft)' },
               type: 'linear',
-              ticks: { callback: (v) => Number(v).toFixed(0) }
+              ticks: { callback: (v) => Number(v).toFixed(1) } // show 0.1 ft to avoid labeling collisions
             },
             y: { title: { display: true, text: 'Pressure (PSI)' }, beginAtZero: true }
           },
           plugins: {
             legend: { display: true },
             tooltip: {
-              // Use item sorting to ensure pre appears before post when both are present
               itemSort: (a, b) => {
                 const ai = a.dataIndex, bi = b.dataIndex;
                 const ak = meta[ai]?.kind, bk = meta[bi]?.kind;
@@ -1340,9 +1351,10 @@
               callbacks: {
                 title: (items) => {
                   if (!items || !items.length) return '';
-                  // For any item in a pump pair, display the base pump distance with 1 decimal
                   const idx = items[0].dataIndex;
-                  const baseX = meta[idx]?.baseX ?? items[0].parsed.x;
+                  const baseX = meta[idx]?.kind === 'post' || meta[idx]?.kind === 'pre'
+                    ? meta[idx].baseX
+                    : items[0].parsed.x;
                   return `Distance: ${Number(baseX).toFixed(1)} ft`;
                 },
                 label: (item) => {
@@ -1354,7 +1366,6 @@
                   return `Pressure: ${yVal} PSI`;
                 },
                 afterBody: (items) => {
-                  // If we hovered a 'pre', append the paired 'post' (if any).
                   if (!items || !items.length) return '';
                   const i0 = items[0].dataIndex;
                   if (meta[i0]?.kind === 'pre' && i0 + 1 < pts.length && meta[i0 + 1]?.kind === 'post' && Math.abs(meta[i0 + 1].baseX - meta[i0].baseX) < 1e-9) {
@@ -1363,18 +1374,17 @@
                   }
                   return '';
                 },
-                // Filter: when hovering near a pump vertex, only show the pre/post pair,
-                // do not include the next-downstream normal point that happens to be close in x.
                 filter: (item) => {
                   const idx = item.dataIndex;
                   const k = meta[idx]?.kind;
                   if (k === 'pre' || k === 'post') return true;
-                  // If a pre/post exists at same baseX within the shown tooltip, suppress normals at that x
-                  // Check neighbors for a pump pair at similar x
-                  const hasPumpNeighbor =
-                    (idx > 0 && meta[idx - 1]?.kind && meta[idx - 1].baseX === meta[idx].baseX) ||
-                    (idx + 1 < meta.length && meta[idx + 1]?.kind && meta[idx + 1].baseX === meta[idx].baseX);
-                  return !hasPumpNeighbor;
+                  // If any item in this tooltip group is a pump pre/post at same baseX, suppress normals close by
+                  const sameBasePumpPresent = item.chart.tooltip?.dataPoints?.some(dp => {
+                    const di = dp.dataIndex;
+                    return (meta[di]?.kind === 'pre' || meta[di]?.kind === 'post') &&
+                           Math.abs(meta[di].baseX - meta[idx].baseX) < 1e-3;
+                  });
+                  return !sameBasePumpPresent;
                 }
               }
             }
@@ -1725,7 +1735,7 @@
       return usedPsiLossPer100;
     }
 
-    function renderResults(totalFt, usedPsiLossPer100, finalPressure, pumpCount, warnings, distances, pressures, minSuction) {
+    function renderResults(totalFt, usedPsiLossPer100, finalPressure, pumpCount, warnings, distances, pressures, minSuction, kinds) {
       elResults.style.display = 'block';
       elOutDist.textContent = totalFt.toFixed(1);
       elOutUsedLoss.textContent = usedPsiLossPer100.toFixed(4) + ' PSI/100ft';
@@ -1748,7 +1758,7 @@
       }
 
       elChartSection.style.display = 'block';
-      renderChart(distances, pressures, minSuction);
+      renderChart(distances, pressures, minSuction, kinds);
   
       // Enable report/CSV buttons now that we have a successful run
       const reportBtn = document.getElementById('generate-report');
@@ -1776,7 +1786,7 @@
           pumpCount,
           warnings: [...warnings]
         },
-        profile: { distances, pressures },
+        profile: { distances, pressures, kinds },
         // Elevation series and base distances for the elevation chart in the report
         elevationsFt: Array.isArray(manualElevFt) ? manualElevFt.slice() : [],
         baseDistancesFt: Array.isArray(manualDistFt) ? manualDistFt.slice() : [],
