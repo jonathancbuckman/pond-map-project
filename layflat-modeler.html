@@ -1277,36 +1277,27 @@
       if (!Array.isArray(distances) || !Array.isArray(pressures) || !distances.length || !pressures.length) return;
 
       const n = Math.min(distances.length, pressures.length);
-      const eps = 0.01; // UI-only offset for post point
-      const pts = [];
-      const meta = []; // {baseX, kind: 'normal'|'pre'|'post'}
+      const eps = 0.02; // overlay offset in ft for vertical pump jump
 
-      // Access the pump vertex indices captured at renderResults time
-      const pumpSet = (typeof window.__pumpIndexSet === 'object' && window.__pumpIndexSet) ? window.__pumpIndexSet : Object.create(null);
-
-      // If kinds provided and aligned, deterministically tag pre/post/normal.
-      // We still nudge 'post' by +eps and nudge normals that share the same X as a pump pair.
+      // 1) Base dataset: single point per base distance. Keep normals and pre; drop post to remove duplicate-x.
+      const basePts = [];
       for (let i = 0; i < n; i++) {
-        const x = Number(distances[i]);
-        const y = Number(pressures[i]);
-        const k = Array.isArray(kinds) && kinds.length === n ? kinds[i] : null;
+        const k = Array.isArray(kinds) && kinds.length === n ? kinds[i] : 'normal';
+        if (k === 'post') continue;
+        basePts.push({ x: Number(distances[i]), y: Number(pressures[i]) });
+      }
 
-        if (k === 'post') {
-          pts.push({ x: x + eps, y });
-          meta.push({ baseX: x, kind: 'post' });
-        } else if (k === 'pre') {
-          pts.push({ x, y });
-          meta.push({ baseX: x, kind: 'pre' });
-        } else {
-          // Check neighbors for pump same-x to avoid grouping normals with pump pair at same X
-          const leftIsPumpSameX = (i > 0) && (Array.isArray(kinds) ? (kinds[i-1] === 'pre' || kinds[i-1] === 'post') : false) && Math.abs(Number(distances[i-1]) - x) < 1e-9;
-          const rightIsPumpSameX = (i + 1 < n) && (Array.isArray(kinds) ? (kinds[i+1] === 'pre' || kinds[i+1] === 'post') : false) && Math.abs(Number(distances[i+1]) - x) < 1e-9;
-          if (leftIsPumpSameX || rightIsPumpSameX) {
-            pts.push({ x: x + 0.02, y });
-            meta.push({ baseX: x + 0.02, kind: 'normal' });
-          } else {
-            pts.push({ x, y });
-            meta.push({ baseX: x, kind: 'normal' });
+      // 2) Overlay dataset: vertical jump segments at pumps using unique x’s (d - eps, d + eps).
+      const jumpPts = [];
+      if (Array.isArray(kinds) && kinds.length === n) {
+        for (let i = 0; i < n - 1; i++) {
+          if (kinds[i] === 'pre' && kinds[i + 1] === 'post') {
+            const d = Number(distances[i]);
+            const preY = Number(pressures[i]);
+            const postY = Number(pressures[i + 1]);
+            // Push two points; Chart.js will draw a vertical line between them
+            jumpPts.push({ x: d - eps, y: preY });
+            jumpPts.push({ x: d + eps, y: postY });
           }
         }
       }
@@ -1314,16 +1305,33 @@
       chartInstance = new Chart(chartCanvas.getContext('2d'), {
         type: 'line',
         data: {
-          datasets: [{
-            label: 'Pressure (PSI)',
-            data: pts,
-            parsing: false,
-            borderColor: '#0b5fff',
-            backgroundColor: 'rgba(11,95,255,0.10)',
-            pointRadius: 1.5,
-            tension: 0,
-            fill: false
-          }]
+          datasets: [
+            {
+              label: 'Pressure (PSI)',
+              data: basePts,
+              parsing: false,
+              borderColor: '#0b5fff',
+              backgroundColor: 'rgba(11,95,255,0.10)',
+              pointRadius: 1.5,
+              tension: 0,
+              fill: false,
+              order: 1
+            },
+            {
+              label: 'Pump jump',
+              data: jumpPts,
+              parsing: false,
+              borderColor: '#ff7f0e',
+              backgroundColor: 'rgba(255,127,14,0.15)',
+              pointRadius: 0,
+              showLine: true,
+              tension: 0,
+              fill: false,
+              stepped: false,
+              spanGaps: false,
+              order: 0
+            }
+          ]
         },
         options: {
           responsive: true,
@@ -1334,57 +1342,31 @@
             x: {
               title: { display: true, text: 'Distance (ft)' },
               type: 'linear',
-              ticks: { callback: (v) => Number(v).toFixed(1) } // show 0.1 ft to avoid labeling collisions
+              ticks: { callback: (v) => Number(v).toFixed(1) }
             },
             y: { title: { display: true, text: 'Pressure (PSI)' }, beginAtZero: true }
           },
           plugins: {
             legend: { display: true },
             tooltip: {
-              itemSort: (a, b) => {
-                const ai = a.dataIndex, bi = b.dataIndex;
-                const ak = meta[ai]?.kind, bk = meta[bi]?.kind;
-                if (ak === 'pre' && bk === 'post') return -1;
-                if (ak === 'post' && bk === 'pre') return 1;
-                return ai - bi;
-              },
+              mode: 'nearest',
+              itemSort: (a, b) => (a.datasetIndex - b.datasetIndex) || (a.dataIndex - b.dataIndex),
               callbacks: {
                 title: (items) => {
                   if (!items || !items.length) return '';
-                  const idx = items[0].dataIndex;
-                  const baseX = meta[idx]?.kind === 'post' || meta[idx]?.kind === 'pre'
-                    ? meta[idx].baseX
-                    : items[0].parsed.x;
+                  const it = items[0];
+                  const x = Number(it.parsed.x);
+                  // For overlay points, remove eps for display
+                  const baseX = (it.datasetIndex === 1) ? (x + (Math.sign(x) < 0 ? eps : -eps)) : x;
                   return `Distance: ${Number(baseX).toFixed(1)} ft`;
                 },
                 label: (item) => {
-                  const idx = item.dataIndex;
-                  const kind = meta[idx]?.kind || 'normal';
-                  const yVal = Number(item.parsed.y).toFixed(3);
-                  if (kind === 'pre') return `Pre (inlet): ${yVal} PSI`;
-                  if (kind === 'post') return `Post (discharge): ${yVal} PSI`;
-                  return `Pressure: ${yVal} PSI`;
-                },
-                afterBody: (items) => {
-                  if (!items || !items.length) return '';
-                  const i0 = items[0].dataIndex;
-                  if (meta[i0]?.kind === 'pre' && i0 + 1 < pts.length && meta[i0 + 1]?.kind === 'post' && Math.abs(meta[i0 + 1].baseX - meta[i0].baseX) < 1e-9) {
-                    const postY = pts[i0 + 1].y;
-                    return `\nPost (discharge): ${Number(postY).toFixed(3)} PSI`;
+                  if (item.datasetIndex === 1) {
+                    // Overlay: even index is pre, odd is post
+                    const isPre = (item.dataIndex % 2 === 0);
+                    return `${isPre ? 'Pre (inlet)' : 'Post (discharge)'}: ${Number(item.parsed.y).toFixed(3)} PSI`;
                   }
-                  return '';
-                },
-                filter: (item) => {
-                  const idx = item.dataIndex;
-                  const k = meta[idx]?.kind;
-                  if (k === 'pre' || k === 'post') return true;
-                  // If any item in this tooltip group is a pump pre/post at same baseX, suppress normals close by
-                  const sameBasePumpPresent = item.chart.tooltip?.dataPoints?.some(dp => {
-                    const di = dp.dataIndex;
-                    return (meta[di]?.kind === 'pre' || meta[di]?.kind === 'post') &&
-                           Math.abs(meta[di].baseX - meta[idx].baseX) < 1e-3;
-                  });
-                  return !sameBasePumpPresent;
+                  return `Pressure: ${Number(item.parsed.y).toFixed(3)} PSI`;
                 }
               }
             }
