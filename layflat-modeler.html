@@ -1287,17 +1287,18 @@
         basePts.push({ x: Number(distances[i]), y: Number(pressures[i]) });
       }
 
-      // 2) Overlay dataset: vertical jump segments at pumps using unique x’s (d - eps, d + eps).
-      const jumpPts = [];
+      // 2) Overlay dataset: pump markers (single scatter point per pump).
+      // Marker placed at x = pump distance, y = midpoint between pre and post to avoid clashing with the base line.
+      // We carry pre/post on each point for tooltip display.
+      const pumpMarkers = [];
       if (Array.isArray(kinds) && kinds.length === n) {
         for (let i = 0; i < n - 1; i++) {
           if (kinds[i] === 'pre' && kinds[i + 1] === 'post') {
             const d = Number(distances[i]);
             const preY = Number(pressures[i]);
             const postY = Number(pressures[i + 1]);
-            // Push two points; Chart.js will draw a vertical line between them
-            jumpPts.push({ x: d - eps, y: preY });
-            jumpPts.push({ x: d + eps, y: postY });
+            const midY = (preY + postY) / 2;
+            pumpMarkers.push({ x: d, y: midY, __pre: preY, __post: postY });
           }
         }
       }
@@ -1318,17 +1319,15 @@
               order: 1
             },
             {
-              label: 'Pump jump',
-              data: jumpPts,
+              label: 'Pump',
+              type: 'scatter',
+              data: pumpMarkers,
               parsing: false,
-              borderColor: '#ff7f0e',
-              backgroundColor: 'rgba(255,127,14,0.15)',
-              pointRadius: 0,
-              showLine: true,
-              tension: 0,
-              fill: false,
-              stepped: false,
-              spanGaps: false,
+              pointStyle: 'triangle', // simple pump-like marker; could be customized further
+              pointBackgroundColor: '#ff7f0e',
+              pointBorderColor: '#ff7f0e',
+              pointRadius: 6,
+              showLine: false,
               order: 0
             }
           ]
@@ -1354,17 +1353,19 @@
               callbacks: {
                 title: (items) => {
                   if (!items || !items.length) return '';
-                  const it = items[0];
-                  const x = Number(it.parsed.x);
-                  // For overlay points, remove eps for display
-                  const baseX = (it.datasetIndex === 1) ? (x + (Math.sign(x) < 0 ? eps : -eps)) : x;
-                  return `Distance: ${Number(baseX).toFixed(1)} ft`;
+                  const x = Number(items[0].parsed.x);
+                  return `Distance: ${Number(x).toFixed(1)} ft`;
                 },
                 label: (item) => {
                   if (item.datasetIndex === 1) {
-                    // Overlay: even index is pre, odd is post
-                    const isPre = (item.dataIndex % 2 === 0);
-                    return `${isPre ? 'Pre (inlet)' : 'Post (discharge)'}: ${Number(item.parsed.y).toFixed(3)} PSI`;
+                    // Pump marker: read pre/post we stored on the raw data object
+                    const raw = item.raw || {};
+                    const pre = typeof raw.__pre === 'number' ? raw.__pre : null;
+                    const post = typeof raw.__post === 'number' ? raw.__post : null;
+                    const lines = [];
+                    if (pre != null) lines.push(`Pre (inlet): ${Number(pre).toFixed(3)} PSI`);
+                    if (post != null) lines.push(`Post (discharge): ${Number(post).toFixed(3)} PSI`);
+                    return lines;
                   }
                   return `Pressure: ${Number(item.parsed.y).toFixed(3)} PSI`;
                 }
