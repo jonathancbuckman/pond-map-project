@@ -1046,7 +1046,7 @@
           row.className = 'manual-pump-row';
           row.innerHTML = `
             <div class="mp-col mp-col--id">#${idx+1} @ ${(p.distanceFt/5280).toFixed(2)} mi</div>
-            <div class="mp-col mp-col--inlet">Inlet: ${(p.pressureBefore ?? 0).toFixed(1)} PSI</div>
+            <div class="mp-col mp-col--inlet">Inlet (at pump): ${(Number(p.pressureBefore ?? 0)).toFixed(3)} PSI</div>
             <div class="mp-col mp-col--disch">
               <label class="mp-label" for="mp-dis-${idx}">Discharge PSI</label>
               <input id="mp-dis-${idx}" class="mp-input" type="number" step="0.1" inputmode="decimal" value="${Number(p.discharge ?? elMidlinePsi.value)}">
@@ -1160,12 +1160,13 @@
       const distancesForChart = prof.distances;
       const pressures = prof.pressures;
 
-      // Update map markers popups to show raw inlet
+      // Update map markers popups to show true inlet at pump vertex (matches CSV pre-row)
       pumpLayer.clearLayers();
       manualPumps.forEach((p, idx) => {
         const [lat, lon] = manualLatLngs[p.index];
+        const inletAtVertex = Number(p.pressureBefore ?? 0); // computed pre at vertex
         const m = L.marker([lat, lon], { draggable: true })
-          .bindPopup(`<b>Manual Pump #${idx+1}</b><br>Distance: ${p.distanceFt.toFixed(0)} ft<br>Inlet: ${(p.pressureBefore??0).toFixed(1)} PSI<br>Discharge: ${Number(p.discharge||0).toFixed(1)} PSI`);
+          .bindPopup(`<b>Manual Pump #${idx+1}</b><br>Distance: ${p.distanceFt.toFixed(0)} ft<br>Inlet (at pump): ${inletAtVertex.toFixed(3)} PSI<br>Discharge: ${Number(p.discharge||0).toFixed(3)} PSI`);
         m.on('dragend', (ev) => {
           const ll = ev.target.getLatLng();
           const i = nearestPathIndex(manualLatLngs, ll);
@@ -1267,29 +1268,22 @@
         chartInstance.destroy();
         chartInstance = null;
       }
-      
-      // Ensure we have valid data arrays
+      // Validate
       if (!Array.isArray(distances) || !Array.isArray(pressures) || distances.length === 0 || pressures.length === 0) {
         console.warn('Invalid chart data:', { distances, pressures });
         return;
       }
-      
-      // Ensure arrays are same length
-      const minLength = Math.min(distances.length, pressures.length);
-      const chartDistances = distances.slice(0, minLength);
-      const chartPressures = pressures.slice(0, minLength);
-      
-      // Create labels
-      const labels = chartDistances.map(d => Number(d).toFixed(0));
-      
+      // Use linear numeric x with explicit points {x, y}
+      const n = Math.min(distances.length, pressures.length);
+      const points = new Array(n).fill(0).map((_, i) => ({ x: Number(distances[i]), y: Number(pressures[i]) }));
       chartInstance = new Chart(chartCanvas.getContext('2d'), {
         type: 'line',
         data: {
-          labels: labels,
           datasets: [
             {
               label: 'Pressure (PSI)',
-              data: chartPressures,
+              data: points,
+              parsing: false,
               borderColor: '#0b5fff',
               backgroundColor: 'rgba(11,95,255,0.10)',
               pointRadius: 1.5,
@@ -1301,14 +1295,18 @@
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          parsing: false,
           interaction: {
             intersect: false,
-            mode: 'index'
+            mode: 'nearest'
           },
           scales: {
             x: {
               title: { display: true, text: 'Distance (ft)' },
-              type: 'category'
+              type: 'linear',
+              ticks: {
+                callback: (v) => Number(v).toFixed(0)
+              }
             },
             y: {
               title: { display: true, text: 'Pressure (PSI)' },
@@ -1316,10 +1314,22 @@
             }
           },
           plugins: {
-            legend: {
-              display: true
+            legend: { display: true },
+            tooltip: {
+              callbacks: {
+                title: (items) => {
+                  // Show distance in ft nicely
+                  if (items && items.length) {
+                    const x = items[0].parsed.x;
+                    return `Distance: ${Number(x).toFixed(0)} ft`;
+                  }
+                  return '';
+                },
+                label: (item) => `Pressure: ${Number(item.parsed.y).toFixed(3)} PSI`
+              }
             }
-          }
+          },
+          elements: { line: { spanGaps: true } }
         }
       });
     }
@@ -1420,6 +1430,11 @@
     // [Removed] pump curve helpers and families (manual mode only)
 
     // Build CSV with detailed hydraulics per your spec.
+    // Enhancements:
+    // - pump_inlet_psi now uses the exact pre-row pressure at the pump vertex (true inlet at location)
+    // - Add constant columns: usedPsiLossPer100 and loss_per_ft
+    // - Add pump_index: sequential number for pumps in path order
+    //
     // Rows:
     // - One row per base vertex normally
     // - At pump vertices: include two rows (pre, post). Pre row uses upstream segment terms (i-1→i).
@@ -1433,20 +1448,24 @@
         );
         if (!n || n < 1) throw new Error('No profile points available');
 
-        // Build a quick lookup for pump by index (allow multiple? assume 0/1 per index)
+        // Build a quick lookup for pump by index (assume at most one per index)
         const pumpByIndex = Object.create(null);
-        if (Array.isArray(pumps)) {
-          pumps.forEach(p => {
-            const idx = Number(p.index);
-            if (Number.isInteger(idx) && idx >= 0 && idx < n) {
-              // Store discharge and inlet if available
-              pumpByIndex[idx] = {
-                discharge: Number(p.discharge || 0),
-                inlet: (typeof p.pressureBefore === 'number') ? Number(p.pressureBefore) : null
-              };
-            }
-          });
-        }
+        let pumpCounter = 0;
+        const sortedPumps = Array.isArray(pumps)
+          ? pumps.slice().sort((a,b) => (a.index||0) - (b.index||0))
+          : [];
+        sortedPumps.forEach(p => {
+          const idx = Number(p.index);
+          if (Number.isInteger(idx) && idx >= 0 && idx < n && !pumpByIndex[idx]) {
+            pumpCounter += 1;
+            pumpByIndex[idx] = {
+              discharge: Number(p.discharge || 0),
+              // Keep original stored inlet for reference, but CSV will use computed pre-row inlet
+              inletStored: (typeof p.pressureBefore === 'number') ? Number(p.pressureBefore) : null,
+              pump_index: pumpCounter
+            };
+          }
+        });
 
         // Recompute pressures across base vertices (same as profile logic without duplicate-x emit)
         let p = Number(state?.sourcePsi || 0);
@@ -1460,12 +1479,14 @@
 
         // Header with inputs snapshot (as commented rows) + column header
         const headerLines = [];
+        const usedPer100 = Number(state?.results?.usedPsiLossPer100 ?? usedPsiLossPer100 ?? 0);
         headerLines.push(`# flow_bpm,${toCsv(state?.flowBpm)}`);
         headerLines.push(`# hose_in,${toCsv(state?.hoseIn)}`);
         headerLines.push(`# hose_runs,${toCsv(state?.hoseRuns)}`);
-        headerLines.push(`# psi_loss_per_100,${toCsv(state?.results?.usedPsiLossPer100 ?? usedPsiLossPer100)}`);
+        headerLines.push(`# psi_loss_per_100,${toCsv(usedPer100)}`);
+        headerLines.push(`# loss_per_ft,${toCsv(lossPerFt)}`);
         headerLines.push(`# path_dir,${toCsv(state?.pathDir)}`);
-        headerLines.push('index,distance_ft,distance_miles,elevation_ft,pressure_psi,seg_len_ft,elev_delta_ft,elev_delta_psi,friction_psi,is_pump,pump_inlet_psi,pump_discharge_psi');
+        headerLines.push('index,distance_ft,distance_miles,elevation_ft,pressure_psi,seg_len_ft,elev_delta_ft,elev_delta_psi,friction_psi,delta_psi,is_pump,pump_inlet_psi,pump_discharge_psi,pump_index,usedPsiLossPer100,loss_per_ft');
 
         // Seed i=0 row (no segment terms)
         {
@@ -1482,19 +1503,25 @@
             friction_psi: 0,
             is_pump: '',
             pump_inlet_psi: '',
-            pump_discharge_psi: ''
+            pump_discharge_psi: '',
+            pump_index: '',
+            usedPsiLossPer100: usedPer100,
+            loss_per_ft: lossPerFt
           };
           // If pump exists exactly at 0, emit pre and post rows
           if (pumpByIndex[i]) {
             // Pre row at i (upstream segment doesn’t exist; keep zeros)
             rows.push(row);
-            // Post row at i (jump)
+            // Post row at i (jump) — inlet uses pre pressure at vertex (row.pressure_psi)
             rows.push({
               ...row,
               pressure_psi: pumpByIndex[i].discharge,
               is_pump: 'post',
-              pump_inlet_psi: toCsv(pumpByIndex[i].inlet ?? p),
-              pump_discharge_psi: toCsv(pumpByIndex[i].discharge)
+              pump_inlet_psi: toCsv(row.pressure_psi),
+              pump_discharge_psi: toCsv(pumpByIndex[i].discharge),
+              pump_index: pumpByIndex[i].pump_index,
+              usedPsiLossPer100: usedPer100,
+              loss_per_ft: lossPerFt
             });
             p = pumpByIndex[i].discharge;
           } else {
@@ -1523,9 +1550,13 @@
               elev_delta_ft: dhFt,
               elev_delta_psi: elevDeltaPsi,
               friction_psi: frictionPsi,
+              delta_psi: (elevDeltaPsi - frictionPsi),
               is_pump: 'pre',
-              pump_inlet_psi: toCsv(pumpByIndex[i].inlet ?? pBefore),
-              pump_discharge_psi: toCsv(pumpByIndex[i].discharge)
+              pump_inlet_psi: toCsv(pBefore), // exact inlet at pump vertex
+              pump_discharge_psi: toCsv(pumpByIndex[i].discharge),
+              pump_index: pumpByIndex[i].pump_index,
+              usedPsiLossPer100: usedPer100,
+              loss_per_ft: lossPerFt
             });
 
             // Post row at i (jump): instantaneous change to discharge; zero segment terms
@@ -1540,9 +1571,13 @@
               elev_delta_ft: 0,
               elev_delta_psi: 0,
               friction_psi: 0,
+              delta_psi: 0,
               is_pump: 'post',
-              pump_inlet_psi: toCsv(pumpByIndex[i].inlet ?? pBefore),
-              pump_discharge_psi: toCsv(pumpByIndex[i].discharge)
+              pump_inlet_psi: toCsv(pBefore), // exact inlet at pump vertex
+              pump_discharge_psi: toCsv(pumpByIndex[i].discharge),
+              pump_index: pumpByIndex[i].pump_index,
+              usedPsiLossPer100: usedPer100,
+              loss_per_ft: lossPerFt
             });
 
             // Set p to post value for downstream propagation to i+1
@@ -1560,9 +1595,13 @@
               elev_delta_ft: dhFt,
               elev_delta_psi: elevDeltaPsi,
               friction_psi: frictionPsi,
+              delta_psi: (elevDeltaPsi - frictionPsi),
               is_pump: '',
               pump_inlet_psi: '',
-              pump_discharge_psi: ''
+              pump_discharge_psi: '',
+              pump_index: '',
+              usedPsiLossPer100: usedPer100,
+              loss_per_ft: lossPerFt
             });
           }
         }
@@ -1576,8 +1615,8 @@
         const lines = headerLines.concat(
           rows.map(r => [
             r.index, r.distance_ft, r.distance_miles, r.elevation_ft, r.pressure_psi,
-            r.seg_len_ft, r.elev_delta_ft, r.elev_delta_psi, r.friction_psi,
-            r.is_pump, r.pump_inlet_psi, r.pump_discharge_psi
+            r.seg_len_ft, r.elev_delta_ft, r.elev_delta_psi, r.friction_psi, r.delta_psi,
+            r.is_pump, r.pump_inlet_psi, r.pump_discharge_psi, r.pump_index, r.usedPsiLossPer100, r.loss_per_ft
           ].map(escape).join(','))
         );
         return lines.join('\n');
