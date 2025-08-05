@@ -1111,7 +1111,9 @@
       outDistances.push(distFt[0]); outPressures.push(p);
       for (let i = 1; i < distFt.length; i++) {
         if (pumpIdx < pumps.length && pumps[pumpIdx].index === i) {
+          // Pre at exact vertex
           outDistances.push(distFt[i]); outPressures.push(p);
+          // Post at same vertex (kept for report/CSV exactness)
           p = pumps[pumpIdx].discharge;
           outDistances.push(distFt[i]); outPressures.push(p);
           pumpIdx++;
@@ -1264,68 +1266,116 @@
     }
 
     function renderChart(distances, pressures, minSuction) {
-      if (chartInstance) {
-        chartInstance.destroy();
-        chartInstance = null;
-      }
-      // Validate
-      if (!Array.isArray(distances) || !Array.isArray(pressures) || distances.length === 0 || pressures.length === 0) {
-        console.warn('Invalid chart data:', { distances, pressures });
-        return;
-      }
-      // Use linear numeric x with explicit points {x, y}
+      if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+      if (!Array.isArray(distances) || !Array.isArray(pressures) || !distances.length || !pressures.length) return;
+
       const n = Math.min(distances.length, pressures.length);
-      const points = new Array(n).fill(0).map((_, i) => ({ x: Number(distances[i]), y: Number(pressures[i]) }));
+      const eps = 0.01; // UI-only offset for post point
+      const pts = [];
+      const meta = []; // {baseX, kind: 'normal'|'pre'|'post'}
+
+      // Build points and tag pump pre/post pairs:
+      // Pattern in series: [..., pre(x), post(x), downstream(x2) ...]
+      for (let i = 0; i < n; i++) {
+        const x = Number(distances[i]);
+        const y = Number(pressures[i]);
+
+        // Detect immediate duplicate-x pair for pump step
+        const isPre = (i + 1 < n) && Number(distances[i + 1]) === x;
+        const isPost = (i > 0) && Number(distances[i - 1]) === x;
+
+        if (isPost) {
+          // This is the post point; shift by epsilon for hover clarity
+          pts.push({ x: x + eps, y });
+          meta.push({ baseX: x, kind: 'post' });
+        } else if (isPre) {
+          // This is the pre point at exact vertex
+          pts.push({ x, y });
+          meta.push({ baseX: x, kind: 'pre' });
+        } else {
+          // Normal point
+          pts.push({ x, y });
+          meta.push({ baseX: x, kind: 'normal' });
+        }
+      }
+
       chartInstance = new Chart(chartCanvas.getContext('2d'), {
         type: 'line',
         data: {
-          datasets: [
-            {
-              label: 'Pressure (PSI)',
-              data: points,
-              parsing: false,
-              borderColor: '#0b5fff',
-              backgroundColor: 'rgba(11,95,255,0.10)',
-              pointRadius: 1.5,
-              tension: 0,
-              fill: false
-            }
-          ]
+          datasets: [{
+            label: 'Pressure (PSI)',
+            data: pts,
+            parsing: false,
+            borderColor: '#0b5fff',
+            backgroundColor: 'rgba(11,95,255,0.10)',
+            pointRadius: 1.5,
+            tension: 0,
+            fill: false
+          }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           parsing: false,
-          interaction: {
-            intersect: false,
-            mode: 'nearest'
-          },
+          interaction: { intersect: false, mode: 'nearest' },
           scales: {
             x: {
               title: { display: true, text: 'Distance (ft)' },
               type: 'linear',
-              ticks: {
-                callback: (v) => Number(v).toFixed(0)
-              }
+              ticks: { callback: (v) => Number(v).toFixed(0) }
             },
-            y: {
-              title: { display: true, text: 'Pressure (PSI)' },
-              beginAtZero: true
-            }
+            y: { title: { display: true, text: 'Pressure (PSI)' }, beginAtZero: true }
           },
           plugins: {
             legend: { display: true },
             tooltip: {
+              // Use item sorting to ensure pre appears before post when both are present
+              itemSort: (a, b) => {
+                const ai = a.dataIndex, bi = b.dataIndex;
+                const ak = meta[ai]?.kind, bk = meta[bi]?.kind;
+                if (ak === 'pre' && bk === 'post') return -1;
+                if (ak === 'post' && bk === 'pre') return 1;
+                return ai - bi;
+              },
               callbacks: {
                 title: (items) => {
-                  // Show distance in ft nicely
-                  if (items && items.length) {
-                    const x = items[0].parsed.x;
-                    return `Distance: ${Number(x).toFixed(0)} ft`;
+                  if (!items || !items.length) return '';
+                  // For any item in a pump pair, display the base pump distance with 1 decimal
+                  const idx = items[0].dataIndex;
+                  const baseX = meta[idx]?.baseX ?? items[0].parsed.x;
+                  return `Distance: ${Number(baseX).toFixed(1)} ft`;
+                },
+                label: (item) => {
+                  const idx = item.dataIndex;
+                  const kind = meta[idx]?.kind || 'normal';
+                  const yVal = Number(item.parsed.y).toFixed(3);
+                  if (kind === 'pre') return `Pre (inlet): ${yVal} PSI`;
+                  if (kind === 'post') return `Post (discharge): ${yVal} PSI`;
+                  return `Pressure: ${yVal} PSI`;
+                },
+                afterBody: (items) => {
+                  // If we hovered a 'pre', append the paired 'post' (if any).
+                  if (!items || !items.length) return '';
+                  const i0 = items[0].dataIndex;
+                  if (meta[i0]?.kind === 'pre' && i0 + 1 < pts.length && meta[i0 + 1]?.kind === 'post' && Math.abs(meta[i0 + 1].baseX - meta[i0].baseX) < 1e-9) {
+                    const postY = pts[i0 + 1].y;
+                    return `\nPost (discharge): ${Number(postY).toFixed(3)} PSI`;
                   }
                   return '';
                 },
-                label: (item) => `Pressure: ${Number(item.parsed.y).toFixed(3)} PSI`
+                // Filter: when hovering near a pump vertex, only show the pre/post pair,
+                // do not include the next-downstream normal point that happens to be close in x.
+                filter: (item) => {
+                  const idx = item.dataIndex;
+                  const k = meta[idx]?.kind;
+                  if (k === 'pre' || k === 'post') return true;
+                  // If a pre/post exists at same baseX within the shown tooltip, suppress normals at that x
+                  // Check neighbors for a pump pair at similar x
+                  const hasPumpNeighbor =
+                    (idx > 0 && meta[idx - 1]?.kind && meta[idx - 1].baseX === meta[idx].baseX) ||
+                    (idx + 1 < meta.length && meta[idx + 1]?.kind && meta[idx + 1].baseX === meta[idx].baseX);
+                  return !hasPumpNeighbor;
+                }
               }
             }
           },
