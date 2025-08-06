@@ -199,19 +199,19 @@
     }
     .mp-label {
       font-size: 12px;
-      color: #666;
+      color: var(--text-muted);
       margin: 0;
       text-align: right;
     }
     .mp-input {
       width: 100%;
       padding: 8px 10px;
-      border: 1px solid #ddd;
+      border: 1px solid var(--border);
       border-radius: 6px;
       font-size: 14px;
       font-family: 'ISOCPEUR', Arial, sans-serif;
-      background: #fff;
-      color: #222;
+      background: var(--bg-card);
+      color: var(--text-primary);
     }
     .mp-col--actions {
       display: flex;
@@ -298,7 +298,7 @@
       <p class="inline-help" style="margin-top:-6px;">
         Set operating parameters for your system. After you click Run Calculation, give it a second to process.
       </p>
-      <div class="inline-help" style="margin-top:6px; color:#444; line-height:1.45;">
+      <div class="inline-help" style="margin-top:6px; color:var(--text-muted); line-height:1.45;">
         <strong>How friction loss is calculated</strong>: The PSI loss per 100 ft is derived from an empirical lookup table that was measured on a 12‑inch layflat system at various flows (converted from barrels per minute to GPM). For 12" hose, we interpolate between the nearest table points to get the head loss in feet per 100 ft, then convert to PSI using 0.433 PSI/ft of water column.
         <br/><br/>
         For 14" and 16" hoses, the 12" baseline is scaled using a standard hydraulic similarity relationship where head loss varies with diameter to approximately the 4.87 power. In practice this means larger diameters have proportionally lower friction loss for the same total flow. Mathematically, Loss(target) ≈ Loss(12") × (12 / target_diameter)^4.87. When dual parallel runs are selected, the total flow is split evenly between the hoses and the resulting per‑run loss is divided by the number of runs.

@@ -15,6 +15,8 @@
       margin: 0 auto;
       padding: 14px 12px 80px;
       font-family: 'ISOCPEUR', Arial, sans-serif;
+      background-color: var(--bg-header);
+      color: var(--text-primary);
     }
     .resume-header {
       display: flex;
@@ -23,15 +25,17 @@
       justify-content: space-between;
       gap: 8px 14px;
       padding: 10px 0 12px;
-      border-bottom: 1px solid #e5e5e5;
-      background: #fff;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-graph);
+      border-radius: 10px;
+      padding: 14px;
     }
     .resume-title {
       margin: 0;
       font-size: 26px;
       font-weight: 800;
       letter-spacing: .2px;
-      color: #111;
+      color: var(--text-primary);
     }
     .contact {
       display: flex;
@@ -39,23 +43,23 @@
       gap: 8px 14px;
       align-items: center;
       font-size: 14px;
-      color: #555;
+      color: var(--text-secondary);
     }
-    .contact a { color: #0b5fff; text-decoration: none; }
+    .contact a { color: var(--accent); text-decoration: none; }
     .contact a:hover { text-decoration: underline; }
     .label {
       display: inline-block;
       padding: 3px 8px;
       border-radius: 999px;
-      background: #eef2ff;
-      border: 1px solid #d8ddff;
-      color: #222;
+      background: var(--accent-weak);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
       font-weight: 600;
       font-size: 12px;
     }
     .section {
-      background: #fff;
-      border: 1px solid #e5e5e5;
+      background: var(--bg-graph);
+      border: 1px solid var(--border);
       border-radius: 10px;
       padding: 14px;
       margin-top: 14px;
@@ -63,7 +67,7 @@
     .section h2 {
       margin: 0 0 10px 0;
       font-size: 18px;
-      color: #222;
+      color: var(--text-primary);
     }
     .item {
       margin-bottom: 14px;
@@ -79,16 +83,16 @@
       font-size: 16px;
       font-weight: 700;
       margin: 0;
-      color: #111;
+      color: var(--text-primary);
     }
     .role-meta {
       font-size: 12px;
-      color: #666;
+      color: var(--text-muted);
     }
     .bullets {
       margin: 6px 0 0 0;
       padding-left: 18px;
-      color: #222;
+      color: var(--text-primary);
       font-size: 14px;
       line-height: 1.45;
     }
@@ -102,9 +106,9 @@
       font-size: 12px;
       padding: 4px 10px;
       border-radius: 999px;
-      background: #eef2ff;
-      border: 1px solid #d8ddff;
-      color: #222;
+      background: var(--accent-weak);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
       font-weight: 600;
     }
     .grid-2 {
@@ -122,18 +126,18 @@
       font-size: 14px;
       line-height: 1.35;
     }
-    .kv .k { color:#333; font-weight:600; }
-    .kv .v { color:#111; font-weight:700; }
+    .kv .k { color: var(--text-secondary); font-weight: 600; }
+    .kv .v { color: var(--text-primary); font-weight: 700; }
 
     /* Obfuscated contact styling (match site font) */
     .obf {
       font-family: 'ISOCPEUR', Arial, sans-serif;
       cursor: pointer;
-      color: #0b5fff;
+      color: var(--accent);
       text-decoration: underline;
     }
     .obf:focus {
-      outline: 2px solid #0b5fff66;
+      outline: 2px solid var(--accent-weak);
       border-radius: 4px;
     }
   </style>
