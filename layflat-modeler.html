@@ -471,6 +471,58 @@
     }
   </script>
 
+  <!-- Plugin to force pump markers to draw last, above lines -->
+  <script>
+    // Draw pump markers on top after all datasets using Chart.js plugin hook
+    const PumpOnTopPlugin = {
+      id: 'pumpOnTop',
+      afterDatasetsDraw(chart, args, pluginOptions) {
+        const { ctx, data } = chart;
+        // Find pump datasets by label (robust to index changes)
+        const pumpDatasets = chart.getDatasetMeta ?
+          data.datasets
+            .map((ds, i) => ({ ds, meta: chart.getDatasetMeta(i) }))
+            .filter(x => x.ds && x.ds.label && String(x.ds.label).toLowerCase() === 'pump')
+          : [];
+
+        if (!pumpDatasets.length) return;
+
+        ctx.save();
+        pumpDatasets.forEach(({ ds, meta }) => {
+          if (!meta || !meta.data) return;
+          const radius = Number(ds.pointRadius ?? 7);
+          const color = ds.pointBackgroundColor || '#ff7f0e';
+
+          meta.data.forEach(element => {
+            if (!element || !element.x || !element.y) return;
+            const x = element.x;
+            const y = element.y;
+            // draw triangle centered at (x, y)
+            const h = radius;
+            const w = radius * 1.15;
+            ctx.beginPath();
+            ctx.moveTo(x, y - h);        // top
+            ctx.lineTo(x + w, y + h);    // bottom right
+            ctx.lineTo(x - w, y + h);    // bottom left
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+            if (ds.pointBorderColor) {
+              ctx.lineWidth = 1.25;
+              ctx.strokeStyle = ds.pointBorderColor;
+              ctx.stroke();
+            }
+          });
+        });
+        ctx.restore();
+      }
+    };
+
+    if (window.Chart && !Chart.registry.plugins.get('pumpOnTop')) {
+      Chart.register(PumpOnTopPlugin);
+    }
+  </script>
+
   <!-- Lightweight client-side gate for Resume link -->
   <script>
     (function(){
@@ -1378,14 +1430,16 @@
               type: 'scatter',
               data: pumpMarkers,
               parsing: false,
-              pointStyle: pumpIcon,          /* use image icon to enforce layering path */
+              pointStyle: pumpIcon,          /* icon still used for hit-testing/legend */
               pointBackgroundColor: pumpColor,
               pointBorderColor: pumpColor,
               pointRadius: 7,
               pointHoverRadius: 8,
               showLine: false,
-              order: 9999,                   /* very high order to render last */
-              clip: false                    /* allow marker to render above edges */
+              order: 9999,                   /* keep high order */
+              clip: false,
+              // Disable default element drawing; plugin will render markers on top
+              showLine: false
             }
           ]
         },
@@ -1502,14 +1556,15 @@
               label: 'Pump',
               type: 'scatter',
               data: pumpPoints.map(p => ({ x: miles[p.x], y: p.y })),
-              pointStyle: pumpIcon,     /* use image icon to enforce layering path */
+              pointStyle: pumpIcon,
               pointBackgroundColor: pumpColor,
               pointBorderColor: pumpColor,
               pointRadius: 7,
               pointHoverRadius: 8,
               showLine: false,
-              order: 9999,              /* render last */
-              clip: false               /* ensure markers are not clipped by chart area */
+              order: 9999,
+              clip: false
+              // Drawing is handled by PumpOnTopPlugin to ensure on-top layering
             }
           ]
         },
