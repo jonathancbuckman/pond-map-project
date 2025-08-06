@@ -1418,7 +1418,7 @@
               pointHoverRadius: 2,
               tension: 0.15,
               fill: false,
-              borderWidth: 2,
+              borderWidth: 3,
               order: 1,                      /* draw the line first (under) */
               segment: { z: 0 },             /* ensure segments are at low z */
               pointStyle: false              /* no points rendered for line */
@@ -1510,19 +1510,14 @@
         return;
       }
 
-      // Build labels in miles, but LIMIT the number of unique category labels to avoid duplicates causing jumps.
-      // Use one label per point, preserving order, and do NOT round for labels; let formatter handle display.
-      const miles = distFt.map(d => (Number(d) / 5280));
-      const labels = miles.map(m => m); // raw numeric; displayed via ticks callback
-
-      // Build the line series aligned by index (use index mode with category scale)
+      // Build data directly in feet to match pressure chart scaling
       const n = Math.min(distFt.length, elevFt.length);
-      const lineData = new Array(n).fill(0).map((_, i) => Number(elevFt[i]));
+      const lineData = new Array(n).fill(0).map((_, i) => ({ x: Number(distFt[i]), y: Number(elevFt[i]) }));
 
-      // Pump markers: target by index on the same category axis (x is the index)
+      // Pump markers positioned in feet on x-axis
       const pumpPoints = Array.isArray(pumps) ? pumps.map(p => {
         const idx = Math.max(0, Math.min(n - 1, Number(p.index) || 0));
-        return { x: idx, y: Number(elevFt[idx]) };
+        return { x: Number(distFt[idx]), y: Number(elevFt[idx]) };
       }) : [];
 
       // Ensure section visible
@@ -1541,11 +1536,12 @@
           datasets: [
             {
               label: 'Elevation (ft)',
-              data: miles.slice(0, lineData.length).map((m, i) => ({ x: m, y: lineData[i] })),
+              data: lineData,
               borderColor: lineColor,
               backgroundColor: fillColor,
               pointRadius: 0,
               tension: 0.15,
+              borderWidth: 3,
               order: 1,                 /* draw the line first (under) */
               segment: { z: 0 },        /* keep segments under */
               pointStyle: false
@@ -1553,7 +1549,7 @@
             {
               label: 'Pump',
               type: 'scatter',
-              data: pumpPoints.map(p => ({ x: miles[p.x], y: p.y })),
+              data: pumpPoints,
               pointStyle: pumpIcon,
               pointBackgroundColor: pumpColor,
               pointBorderColor: pumpColor,
@@ -1572,12 +1568,10 @@
           parsing: false,
           scales: {
             x: {
-              title: { display: true, text: 'Line Distance (miles)', color: axisText },
+              title: { display: true, text: 'Distance (ft)', color: axisText },
               type: 'linear',
               ticks: {
-                callback: (value) => Number(value).toFixed(2),
-                maxRotation: 60,
-                minRotation: 45,
+                callback: (value) => Number(value).toFixed(1),
                 color: axisText
               },
               grid: { color: gridMinor }
