@@ -747,34 +747,37 @@
       outPressures.push(p);
       outKinds.push('normal');
 
+      // Corrected loop: compute segment loss to node i first, then process pump at i
       for (let i = 1; i < distFt.length; i++) {
-        // Check if a pump exists exactly at index i
-        if (pumpIdx < pumps.length && pumps[pumpIdx].index === i) {
-          // Add point just before pump (true pressure at this location)
-          outDistances.push(distFt[i]);
-          outPressures.push(p);
-          outKinds.push('pre');
-
-          // Add point just after pump (boosted pressure at same location)
-          p = pumps[pumpIdx].discharge;
-          outDistances.push(distFt[i]);
-          outPressures.push(p);
-          outKinds.push('post');
-          pumpIdx++;
-          continue; // prevent applying the current segment loss after pump jump
-        }
-
-        // Calculate pressure change through current segment
+        // 1) pressure at the end of segment (i-1 -> i)
         const segLen = distFt[i] - distFt[i - 1];
         const dhFt = elevFt[i] - elevFt[i - 1];
         const elevDeltaPsi = -dhFt * PSI_PER_FOOT_WATER;
         const frictionPsi = lossPerFt * segLen;
-        p = p + elevDeltaPsi - frictionPsi;
+        const pressureAtNodeI = p + elevDeltaPsi - frictionPsi;
 
-        // Add end point of segment (true pressure)
-        outDistances.push(distFt[i]);
-        outPressures.push(p);
-        outKinds.push('normal');
+        // 2) if pump at node i, emit pre with inlet pressureAtNodeI, then post with discharge
+        if (pumpIdx < pumps.length && pumps[pumpIdx].index === i) {
+          // pre (inlet) exactly at node i
+          outDistances.push(distFt[i]);
+          outPressures.push(pressureAtNodeI);
+          outKinds.push('pre');
+
+          // jump to discharge
+          p = pumps[pumpIdx].discharge;
+
+          // post (discharge) at same node i
+          outDistances.push(distFt[i]);
+          outPressures.push(p);
+          outKinds.push('post');
+          pumpIdx++;
+        } else {
+          // no pump at node i, normal node
+          p = pressureAtNodeI;
+          outDistances.push(distFt[i]);
+          outPressures.push(p);
+          outKinds.push('normal');
+        }
       }
 
       return { distances: outDistances, pressures: outPressures, kinds: outKinds };
@@ -1137,22 +1140,28 @@
       let p = sourcePsi;
       let pumpIdx = 0;
       outDistances.push(distFt[0]); outPressures.push(p); outKinds.push('normal');
+
+      // Corrected loop: compute segment loss to node i first, then process pump at i
       for (let i = 1; i < distFt.length; i++) {
-        if (pumpIdx < pumps.length && pumps[pumpIdx].index === i) {
-          // Pre at exact vertex
-          outDistances.push(distFt[i]); outPressures.push(p); outKinds.push('pre');
-          // Post at same vertex (kept for report/CSV exactness)
-          p = pumps[pumpIdx].discharge;
-          outDistances.push(distFt[i]); outPressures.push(p); outKinds.push('post');
-          pumpIdx++;
-          continue; // prevent applying the current segment loss after pump jump
-        }
         const segLen = distFt[i] - distFt[i-1];
         const dhFt = elevFt[i] - elevFt[i-1];
         const elevDeltaPsi = -dhFt * PSI_PER_FOOT_WATER;
         const frictionPsi = lossPerFt * segLen;
-        p = p + elevDeltaPsi - frictionPsi;
-        outDistances.push(distFt[i]); outPressures.push(p); outKinds.push('normal');
+        const pressureAtNodeI = p + elevDeltaPsi - frictionPsi;
+
+        if (pumpIdx < pumps.length && pumps[pumpIdx].index === i) {
+          // Pre at exact vertex uses inlet pressure computed for node i
+          outDistances.push(distFt[i]); outPressures.push(pressureAtNodeI); outKinds.push('pre');
+
+          // Post jump to pump discharge
+          p = pumps[pumpIdx].discharge;
+          outDistances.push(distFt[i]); outPressures.push(p); outKinds.push('post');
+          pumpIdx++;
+        } else {
+          // Normal node
+          p = pressureAtNodeI;
+          outDistances.push(distFt[i]); outPressures.push(p); outKinds.push('normal');
+        }
       }
       return { distances: outDistances, pressures: outPressures, kinds: outKinds };
     }
@@ -1346,8 +1355,7 @@
               pointHoverRadius: 2,
               tension: 0.15,
               fill: false,
-              borderWidth: 2,
-              stepped: 'before'
+              borderWidth: 2
             },
             {
               label: 'Pump',
