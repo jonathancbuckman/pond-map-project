@@ -1355,18 +1355,22 @@
               pointHoverRadius: 2,
               tension: 0.15,
               fill: false,
-              borderWidth: 2
+              borderWidth: 2,
+              order: 1,            /* draw the line first (under) */
+              z: 0
             },
             {
               label: 'Pump',
               type: 'scatter',
               data: pumpMarkers,
               parsing: false,
-              pointStyle: 'triangle',
+              pointStyle: 'triangle',              /* triangle marker for uniformity */
               pointBackgroundColor: pumpColor,
               pointBorderColor: pumpColor,
               pointRadius: 6,
-              showLine: false
+              showLine: false,
+              order: 2,                             /* draw on top of the line */
+              z: 10
             }
           ]
         },
@@ -1474,16 +1478,21 @@
               borderColor: lineColor,
               backgroundColor: fillColor,
               pointRadius: 0,
-              tension: 0.15
+              tension: 0.15,
+              order: 1,           /* draw the line first (under) */
+              z: 0
             },
             {
               label: 'Pump',
               type: 'scatter',
               data: pumpPoints.map(p => ({ x: miles[p.x], y: p.y })),
+              pointStyle: 'triangle',              /* triangle marker for uniformity */
               pointBackgroundColor: pumpColor,
               pointBorderColor: pumpColor,
               pointRadius: 6,
-              showLine: false
+              showLine: false,
+              order: 2,                            /* draw on top of the line */
+              z: 10
             }
           ]
         },
