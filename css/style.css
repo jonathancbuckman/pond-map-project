@@ -20,6 +20,7 @@ html, body {
 
 /* Dark theme variables inspired by reference */
 :root {
+    color-scheme: dark;
     --bg-header: #121212;
     --bg-surface: #202630;
     --bg-panel: #1f242d;
@@ -96,7 +97,8 @@ body.modeler-page {
 .field select,
 .field input[type="file"],
 .mp-input {
-    background: #121418 !important;
+    -webkit-appearance: none;
+    background-color: #121418 !important;
     color: var(--text-primary) !important;
     border: 1px solid var(--border) !important;
 }
@@ -112,12 +114,13 @@ body.modeler-page {
 
 /* Buttons */
 .btn {
+    -webkit-appearance: none;
     border: 1px solid var(--accent) !important;
-    background: var(--accent) !important;
+    background-color: var(--accent) !important;
     color: #fff !important;
 }
 .btn.secondary {
-    background: #14171c !important;
+    background-color: #14171c !important;
     color: var(--text-primary) !important;
     border-color: var(--border) !important;
 }
