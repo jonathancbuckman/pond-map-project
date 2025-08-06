@@ -1167,26 +1167,35 @@
     }
 
     function recomputeManualInlets() {
-      // recompute inlet pressures at pump indices based on current manualPumps and current hydraulics
+      // Recompute inlet pressures at pump vertices using corrected ordering:
+      // compute segment loss to node i first, then process a pump at i.
       const sourcePsi = Number(elSourcePsi.value);
       const usedPsiLossPer100 = window.__lastUsedPsiLossPer100 || 0;
       const lossPerFt = usedPsiLossPer100 / 100.0;
 
+      // Ensure pumps are processed in path order
+      manualPumps.sort((a, b) => a.index - b.index);
+
       let p = sourcePsi;
-      let nextPumpIdx = 0;
-      for (let i=1;i<manualDistFt.length;i++){
-        if (nextPumpIdx < manualPumps.length && manualPumps[nextPumpIdx].index === i){
-          // inlet at this node is current p
-          manualPumps[nextPumpIdx].pressureBefore = p; // raw, no clamping
-          // jump to discharge
-          p = Number(manualPumps[nextPumpIdx].discharge || elMidlinePsi.value);
-          nextPumpIdx++;
-        }
-        const segLen = manualDistFt[i] - manualDistFt[i-1];
-        const dhFt = manualElevFt[i] - manualElevFt[i-1];
+      let pumpIdx = 0;
+
+      for (let i = 1; i < manualDistFt.length; i++) {
+        // 1) pressure at the end of segment (i-1 -> i)
+        const segLen = manualDistFt[i] - manualDistFt[i - 1];
+        const dhFt = manualElevFt[i] - manualElevFt[i - 1];
         const elevDeltaPsi = -dhFt * PSI_PER_FOOT_WATER;
         const frictionPsi = lossPerFt * segLen;
-        p = p + elevDeltaPsi - frictionPsi;
+        const pressureAtNodeI = p + elevDeltaPsi - frictionPsi;
+
+        // 2) if a pump exists at node i, set inlet to pressureAtNodeI, then jump to discharge
+        if (pumpIdx < manualPumps.length && manualPumps[pumpIdx].index === i) {
+          manualPumps[pumpIdx].pressureBefore = pressureAtNodeI; // true inlet at node i
+          p = Number(manualPumps[pumpIdx].discharge || elMidlinePsi.value); // post-pump for next segment
+          pumpIdx++;
+        } else {
+          // No pump: continue with pressure at node i
+          p = pressureAtNodeI;
+        }
       }
     }
 
@@ -1356,21 +1365,24 @@
               tension: 0.15,
               fill: false,
               borderWidth: 2,
-              order: 1,            /* draw the line first (under) */
-              z: 0
+              order: 1,                      /* draw the line first (under) */
+              segment: { z: 0 },             /* ensure segments are at low z */
+              pointStyle: false              /* no points rendered for line */
             },
             {
               label: 'Pump',
               type: 'scatter',
               data: pumpMarkers,
               parsing: false,
-              pointStyle: 'triangle',              /* triangle marker for uniformity */
+              pointStyle: 'triangle',        /* triangle marker for uniformity */
               pointBackgroundColor: pumpColor,
               pointBorderColor: pumpColor,
-              pointRadius: 6,
+              pointRadius: 7,
+              pointHoverRadius: 8,
               showLine: false,
-              order: 2,                             /* draw on top of the line */
-              z: 10
+              order: 9999,                   /* very high order to render last */
+              clip: false,                   /* allow marker to render above edges */
+              datasets: undefined            /* ensure no dataset-specific clipping issues */
             }
           ]
         },
@@ -1479,20 +1491,22 @@
               backgroundColor: fillColor,
               pointRadius: 0,
               tension: 0.15,
-              order: 1,           /* draw the line first (under) */
-              z: 0
+              order: 1,                 /* draw the line first (under) */
+              segment: { z: 0 },        /* keep segments under */
+              pointStyle: false
             },
             {
               label: 'Pump',
               type: 'scatter',
               data: pumpPoints.map(p => ({ x: miles[p.x], y: p.y })),
-              pointStyle: 'triangle',              /* triangle marker for uniformity */
+              pointStyle: 'triangle',   /* triangle marker for uniformity */
               pointBackgroundColor: pumpColor,
               pointBorderColor: pumpColor,
-              pointRadius: 6,
+              pointRadius: 7,
+              pointHoverRadius: 8,
               showLine: false,
-              order: 2,                            /* draw on top of the line */
-              z: 10
+              order: 9999,              /* render last */
+              clip: false               /* ensure markers are not clipped by chart area */
             }
           ]
         },
