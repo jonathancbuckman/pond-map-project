@@ -261,7 +261,6 @@
             <li>Results summary including total distance, used friction loss, final outlet pressure, and pump count.</li>
           </ul>
         </li>
-        <li>When satisfied, click “Generate Report” to open a printable summary of inputs, pump list, and the pressure profile.</li>
       </ol>
       <p class="inline-help" style="max-width:880px; margin-top:8px;">
         Notes: Elevations are sampled from public terrain data and may be approximate.
@@ -364,7 +363,6 @@
       <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
         <button id="run-calc" class="btn">Run Calculation</button>
         <button id="reset-form" class="btn secondary">Reset</button>
-        <button id="generate-report" class="btn secondary" title="Open printable report in a new tab" disabled>Generate Report</button>
         <button id="download-csv" class="btn secondary" title="Download hydraulic data as CSV" disabled>Download CSV</button>
       </div>
     </section>
@@ -1872,13 +1870,11 @@
       elChartSection.style.display = 'block';
       renderChart(distances, pressures, minSuction, kinds);
   
-      // Enable report/CSV buttons now that we have a successful run
-      const reportBtn = document.getElementById('generate-report');
-      if (reportBtn) reportBtn.disabled = false;
+      // Enable CSV button now that we have a successful run
       const csvBtn = document.getElementById('download-csv');
       if (csvBtn) csvBtn.disabled = false;
  
-      // Store the latest run dataset on window for report generation
+      // Store the latest run dataset on window for CSV generation
       window.__modelerLastRun = {
         flowBpm: Number(elFlowBpm.value),
         hoseIn: Number(elHoseSize.value),
@@ -1951,8 +1947,6 @@
 
       // If no KML path provided, block calculation silently and prompt user in path section
       if (!latlngs.length) {
-        const reportBtn = document.getElementById('generate-report');
-        if (reportBtn) reportBtn.disabled = true;
         delete window.__modelerLastRun;
 
         elMapSection.style.display = 'none';
@@ -2040,140 +2034,6 @@
 
     document.getElementById('run-calc').addEventListener('click', runCalc);
 
-    // --- Printable Report (new tab) ---
-    function milesFromFeet(ft) { return (Number(ft||0) / 5280); }
-    function fmt(n, digits=1) { return isFinite(n) ? Number(n).toFixed(digits) : '—'; }
-
-    function buildReportHtml(state) {
-      const dt = new Date();
-      const dateStr = dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString();
-      const totalMi = milesFromFeet(state.results.totalFt);
-      const usedLoss = state.results.usedPsiLossPer100;
-
-      // Manual-mode report: no NPSHR or curve family details.
-      const pumpRows = (state.pumpsSummary || []).map((p, i) => {
-        const distMi = milesFromFeet(p.distanceFt);
-        return `
-          <tr>
-            <td>#${i+1}</td>
-            <td>${fmt(distMi, 2)} mi</td>
-            <td>${fmt(p.pressureBefore, 1)} PSI</td>
-            <td>${fmt(p.discharge, 1)} PSI</td>
-          </tr>`;
-      }).join('') || `<tr><td colspan="4">No midline pumps placed</td></tr>`;
-
-      // Inline CSS optimized for 8.5x11 portrait, narrow centered stack
-      const styles = `
-        <style>
-          @page { size: 8.5in 11in; margin: 0.5in; }
-          :root { --fg:#111; --muted:#555; --line:#dcddea; --accent:#0b5fff; --soft:#eef2ff; }
-          * { box-sizing: border-box; }
-          body { font-family: 'ISOCPEUR', Arial, sans-serif; color:var(--fg); background:white; font-size: 14px; }
-          .wrap { max-width: 820px; margin: 0 auto; }
-          .hdr { text-align:center; margin: 8px 0 14px; }
-          .title { font-size:28px; font-weight:800; margin:4px 0 0; letter-spacing:0.2px; }
-          .subtitle { font-size:13px; color:var(--muted); }
-          .card { border:1px solid var(--line); border-radius:12px; padding:14px 16px; background:#fff; }
-          .section-h { font-size:16px; font-weight:700; margin: 0 0 8px; color:#222; }
-          .stack { display:grid; grid-template-columns: 1fr; gap:8px; }
-          .kv { display:flex; justify-content:space-between; gap:10px; font-size:14px; line-height:1.35; }
-          .kv .k { color:#333; font-weight:600; }
-          .kv .v { color:#111; font-weight:700; }
-          .chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
-          .chip { font-size:12px; padding:4px 10px; border-radius:999px; background:var(--soft); border:1px solid #d8ddff; color:#222; font-weight:600; }
-          table { width:100%; border-collapse: collapse; font-size:14px; }
-          th, td { border: 1px solid var(--line); padding:8px 9px; text-align:left; }
-          th { background:#f3f5ff; font-weight:800; }
-          .chart { width:100%; height:320px; margin-top:8px; border:1px solid #e3e6ff; border-radius:10px; }
-          .badge { display:inline-block; padding:2px 9px; border-radius:10px; color:#fff; font-size:12px; font-weight:700; }
-          .good { background:#198754; }
-          .bad { background:#dc3545; }
-          .note { font-size:12px; color:var(--muted); margin-top:8px; }
-          /* Axes labels for inline SVG */
-          .axis-label {
-            font-size: 20px;
-            font-weight: 800;
-            fill: #222;
-            font-family: 'ISOCPEUR', Arial, sans-serif;
-          }
-          /* Print-specific pagination control */
-          @media print {
-            /* Keep each card intact if it fits on a page */
-            .card { break-inside: avoid; page-break-inside: avoid; }
-            /* Utility to force the next section onto a new page */
-            .page-break-before { break-before: page; page-break-before: always; }
-          }
-        </style>
-      `;
-
-      // Embed profile as SVG (no external libs)
-      const distances = state.profile.distances || [];
-      const pressures = state.profile.pressures || [];
-      const svg = buildSimplePressureSvg(distances, pressures, state.minSuction);
-
-      // Elevation profile inputs
-      const elevDistancesFt = Array.isArray(state.baseDistancesFt) && state.baseDistancesFt.length ? state.baseDistancesFt : distances;
-      const elevationsFt = Array.isArray(state.elevationsFt) ? state.elevationsFt : [];
-      const elevSvg = elevationsFt.length && elevDistancesFt.length ? buildSimpleElevationSvg(elevDistancesFt, elevationsFt, state.pumpsSummary || []) : '<div class="chart" style="display:flex;align-items:center;justify-content:center;color:#666;">No elevation data</div>';
-
-      const runsLabel = state.hoseRuns ? (state.hoseRuns === 2 ? 'Dual (parallel)' : 'Single') : 'Single';
-      return `
-        <!doctype html>
-        <html>
-          <head><meta charset="utf-8">${styles}<title>Layflat Line Report</title></head>
-          <body>
-            <div class="wrap">
-              <div class="hdr">
-                <div class="title">Line Profile Report</div>
-                <div class="subtitle">Generated ${dateStr}</div>
-              </div>
-
-              <div class="card" style="margin-bottom:10px;">
-                <div class="section-h">Manual Mode Summary</div>
-                <div class="stack">
-                  <div class="kv"><div class="k">Distance</div><div class="v">${fmt(totalMi,2)} miles</div></div>
-                  <div class="kv"><div class="k">Desired Rate</div><div class="v">${fmt(state.flowBpm,0)} BPM</div></div>
-                  <div class="kv"><div class="k">Hose Diameter</div><div class="v">${fmt(state.hoseIn,0)} in</div></div>
-                  <div class="kv"><div class="k">Hose Runs</div><div class="v">${runsLabel}</div></div>
-                  <div class="kv"><div class="k">Friction Loss</div><div class="v">${fmt(usedLoss,4)} PSI/100 ft</div></div>
-                  <div class="kv"><div class="k">Max Hose PSI</div><div class="v">${fmt(state.maxHose,0)} PSI</div></div>
-                  <div class="kv"><div class="k">Final Outlet Pressure</div><div class="v">${fmt(state.results.finalPressure,1)} PSI</div></div>
-                  <div class="kv"><div class="k">Loss Method</div><div class="v">${state.lossMethod}</div></div>
-                  <div class="kv"><div class="k">Path Direction</div><div class="v">${state.pathDir === 'dest_to_source' ? 'Destination → Source' : 'Source → Destination'}</div></div>
-                </div>
-                <!-- NPSHR note intentionally removed for manual-mode report -->
-              </div>
-
-              <div class="card" style="margin-bottom:10px;">
-                <div class="section-h">Midline Pumps</div>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>#</th><th>Distance</th><th>Inlet PSI</th><th>Discharge PSI</th>
-                    </tr>
-                  </thead>
-                  <tbody>${pumpRows}</tbody>
-                </table>
-              </div>
-
-              <div class="card">
-                <div class="section-h">Pressure Profile</div>
-                <div class="chart">${svg}</div>
-              </div>
-
-              <div class="card page-break-before" style="margin-top:10px;">
-                <div class="section-h">Elevation Profile</div>
-                <div class="chart">${elevSvg}</div>
-                ${state.results.warnings && state.results.warnings.length ? `
-                  <div class="section-h" style="margin-top:10px;">Warnings</div>
-                  <ul class="note">${state.results.warnings.map(w => `<li>${w}</li>`).join('')}</ul>
-                ` : ''}
-              </div>
-            </div>
-          </body>
-        </html>
-      `;
-    }
 
     // Render a basic SVG pressure chart without external libraries
     function buildSimplePressureSvg(distances, pressures, minLine) {
@@ -2367,41 +2227,6 @@
         </svg>
       `;
     }
-    function openReport() {
-      const state = window.__modelerLastRun;
-      if (!state) {
-        alert('Run a calculation with a valid path before generating a report.');
-        return;
-      }
-
-      // Rebuild pumpsSummary from the current manualPumps to reflect any drags/edits
-      if (Array.isArray(window.manualPumps) && window.manualPumps.length) {
-        const refreshed = window.manualPumps
-          .slice()
-          .sort((a,b) => a.distanceFt - b.distanceFt)
-          .map(p => ({
-            index: p.index,
-            distanceFt: p.distanceFt,
-            pressureBefore: p.pressureBefore,
-            discharge: Number(p.discharge || 0)
-          }));
-        state.pumpsSummary = refreshed;
-      }
-
-      const html = buildReportHtml(state);
-      const w = window.open('', '_blank');
-      if (!w) { alert('Popup blocked. Allow popups to view the report.'); return; }
-      w.document.open();
-      w.document.write(html);
-      w.document.close();
-      // Try to trigger print preview after load for convenience
-      w.onload = () => { try { w.focus(); } catch {} };
-    }
-
-    const reportBtn = document.getElementById('generate-report');
-    if (reportBtn) {
-      reportBtn.addEventListener('click', openReport);
-    }
 
     // --- Download CSV wiring ---
     const csvBtn = document.getElementById('download-csv');
@@ -2484,9 +2309,7 @@
 
       // Keep map section visible but clear pumps so user sees path without stale boosts
       if (pumpLayer) { try { pumpLayer.clearLayers(); } catch {} }
-      // Disable report/CSV and clear last run to avoid stale export
-      const reportBtn = document.getElementById('generate-report');
-      if (reportBtn) reportBtn.disabled = true;
+      // Disable CSV and clear last run to avoid stale export
       const csvBtn = document.getElementById('download-csv');
       if (csvBtn) csvBtn.disabled = true;
       delete window.__modelerLastRun;
@@ -2519,8 +2342,6 @@
       // Clear everything visual so a new file doesn't mix with old output
       elResults.style.display = 'none';
       elChartSection.style.display = 'none';
-      const reportBtn = document.getElementById('generate-report');
-      if (reportBtn) reportBtn.disabled = true;
       const csvBtn = document.getElementById('download-csv');
       if (csvBtn) csvBtn.disabled = true;
       delete window.__modelerLastRun;
