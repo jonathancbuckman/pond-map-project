@@ -15,60 +15,258 @@ html, body {
     width: 100%;
     margin: 0;
     padding: 0;
-    /* This applies the font to the general page, but will be
-       overridden by Leaflet's more specific rules. */
     font-family: 'ISOCPEUR', Arial, sans-serif;
 }
 
+/* Dark theme variables inspired by reference */
+:root {
+    --bg-header: #121212;
+    --bg-surface: #202630;
+    --bg-panel: #1f242d;
+    --bg-graph: #202630;
+
+    --text-primary: rgb(241,243,244);
+    --text-secondary: rgb(181,183,184);
+    --text-muted: rgb(161,163,164);
+
+    --border: #2a2d2f;
+    --border-subtle: #2F3F4D;
+
+    --accent: #3b83f7;          /* primary accent similar to reference */
+    --accent-weak: rgba(59,131,247,0.18);
+    --danger: #dc3545;
+    --good: #57D7BA;
+
+    --shadow-1: 0 6px 16px rgba(0,0,0,0.25);
+}
+
+/* Page background */
+body.modeler-page {
+    background-color: var(--bg-header);
+    color: var(--text-primary);
+}
+
+/* Header and footer */
+.site-header {
+    background: var(--bg-header) !important;
+    border-bottom: 1px solid var(--border) !important;
+    color: var(--text-primary) !important;
+}
+.site-footer {
+    background: #080808 !important;
+    border-top: 1px solid var(--border) !important;
+    color: var(--text-secondary) !important;
+}
+.footer-link {
+    background: #16181a !important;
+    border-color: var(--border) !important;
+    color: var(--text-primary) !important;
+}
+.footer-link:hover {
+    background: #1b1d21 !important;
+    border-color: #3a3f45 !important;
+}
+
+/* Main wrapper */
+.modeler-wrap {
+    /* blend into dark theme */
+    color: var(--text-primary);
+}
+
+/* Cards and sections */
+.section-card {
+    background: var(--bg-graph) !important;
+    border: 1px solid var(--border) !important;
+    box-shadow: none;
+}
+.section-card h3 {
+    color: var(--text-primary);
+}
+
+/* Inline help text */
+.inline-help {
+    color: var(--text-muted) !important;
+}
+
+/* Form elements */
+.field label {
+    color: var(--text-secondary);
+}
+.field input[type="number"],
+.field select,
+.field input[type="file"],
+.mp-input {
+    background: #121418 !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border) !important;
+}
+.field input::placeholder,
+.mp-input::placeholder {
+    color: #8a8d91;
+}
+
+/* Radio rows */
+.radio-row {
+    color: var(--text-primary);
+}
+
+/* Buttons */
+.btn {
+    border: 1px solid var(--accent) !important;
+    background: var(--accent) !important;
+    color: #fff !important;
+}
+.btn.secondary {
+    background: #14171c !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border) !important;
+}
+.btn.secondary:hover {
+    background: #181b20 !important;
+}
+
+/* Busy overlay and card */
+#busy-overlay {
+    background: rgba(0,0,0,0.45) !important;
+}
+.busy-card {
+    background: #0f1115 !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-primary) !important;
+    box-shadow: var(--shadow-1) !important;
+}
+.spinner {
+    border-color: #283a66 !important;
+    border-top-color: var(--accent) !important;
+}
+
+/* Map container */
+#modeler-map {
+    border: 1px solid var(--border) !important;
+    background: #0f1115;
+}
+
+/* Tables */
+.results-table {
+    color: var(--text-primary);
+}
+.results-table th, .results-table td {
+    border: 1px solid var(--border);
+}
+.results-table th {
+    background: #1a1d24;
+    color: var(--text-secondary);
+}
+.warnings {
+    color: #e1b84a;
+}
+
+/* Badges */
+.badge.good { background: #198754; }
+.badge.bad { background: #dc3545; }
+
+/* Manual pump list */
+.manual-pump-list { color: var(--text-primary); }
+.mp-label { color: var(--text-muted) !important; }
+
+/* Leaflet dark tweaks */
+.leaflet-control {
+    font-family: 'ISOCPEUR', Arial, sans-serif !important;
+}
+.leaflet-control-layers,
+.leaflet-bar a,
+.leaflet-bar a:hover,
+.leaflet-bar a.leaflet-disabled {
+    background: #121418;
+    border-color: var(--border);
+    color: var(--text-primary);
+}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+    background: #0f1115;
+    color: var(--text-primary);
+    border-color: var(--border);
+}
+
+/* Coordinate search */
+.coordinate-search-container {
+    background: #121418 !important;
+    border-color: var(--border) !important;
+    box-shadow: 0 1px 12px rgba(0,0,0,0.4) !important;
+    color: var(--text-primary);
+}
+
+/* Welcome modal dark */
+.welcome-backdrop { background: rgba(0,0,0,0.55); }
+.welcome-dialog {
+    background: #0f1115 !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border) !important;
+}
+.welcome-dialog h2 { color: var(--text-primary) !important; }
+.welcome-dialog p { color: var(--text-secondary) !important; }
+.welcome-action {
+    background: var(--accent) !important;
+    border: 1px solid var(--accent) !important;
+}
+.welcome-action:hover { background: #2f6bd0 !important; }
+.welcome-close {
+    background: #171a20 !important;
+    color: var(--text-primary) !important;
+}
+
+/* Graph containers mimic reference card */
+.chart-box {
+    background: #141821;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+/* Theme utilities for Chart.js (used by JS) */
+:root {
+    --chart-grid-major: #2b3644;
+    --chart-grid-minor: #1e2630;
+    --chart-axis: #9aa3ad;
+    --chart-text: var(--text-secondary);
+    --chart-line: var(--accent);
+    --chart-fill: rgba(59,131,247,0.12);
+    --chart-pump: #ff7f0e;
+}
+
+/* Preserve existing mapping UI styles */
 #map {
     height: 100%;
     width: 100%;
 }
 
 /*
---- 3. LEAFLET OVERRIDE RULES (THE IMPORTANT PART) ---
+--- 3. LEAFLET OVERRIDE RULES (existing retained) ---
 */
-
-/* 
-  This is the key rule. It is more specific and directly targets
-  all Leaflet controls (layer list, zoom buttons, etc.).
-  The "!important" flag ensures it wins against any other rule.
-*/
-.leaflet-control {
-    font-family: 'ISOCPEUR', Arial, sans-serif !important;
-}
-
-/* --- ADD FONT TO YOUR CUSTOM LABEL CLASSES --- */
-
-/* County Labels */
 .county-label {
-    font-family: 'ISOCPEUR', Arial, sans-serif; /* <-- ADD THIS LINE */
+    font-family: 'ISOCPEUR', Arial, sans-serif;
     font-weight: bold;
     pointer-events: none;
-    color: #555;
+    color: #cbd3da;
     font-size: 12px;
-    text-shadow: 0 0 2px #fff, 0 0 4px #fff;
+    text-shadow: 0 0 2px #000, 0 0 4px #000;
 }
-
-/* PLSS Township Labels */
 .plss-label {
-    font-family: 'ISOCPEUR', Arial, sans-serif; /* <-- ADD THIS LINE */
-    background: rgba(255, 255, 255, 0.6);
-    border: 1px solid #777;
+    font-family: 'ISOCPEUR', Arial, sans-serif;
+    background: rgba(20, 22, 28, 0.6);
+    border: 1px solid #3a3f45;
     border-radius: 3px;
     padding: 1px 3px;
     font-size: 11px;
     pointer-events: none;
+    color: var(--text-primary);
 }
-
-/* PLSS Section Labels */
 .plss-section-label {
-    font-family: 'ISOCPEUR', Arial, sans-serif; /* <-- ADD THIS LINE */
+    font-family: 'ISOCPEUR', Arial, sans-serif;
     transform: translate(-50%, -50%);
     background: transparent;
     border: none;
-    text-shadow: 0 0 2px #fff, 0 0 4px #fff, 1px 1px 3px #fff;
-    color: #222;
+    text-shadow: 0 0 2px #000, 0 0 4px #000, 1px 1px 3px #000;
+    color: var(--text-primary);
     font-size: 11px;
     font-weight: 600;
     text-align: center;
@@ -76,12 +274,10 @@ html, body {
     pointer-events: none;
 }
 
-/* --- DETAILED POPUP STYLES (Restored and Corrected) --- */
-
-/* Main popup container - This is where we set the font for the whole popup */
+/* --- DETAILED POPUP STYLES (retained, dark colors) --- */
 .pond-popup {
     box-sizing: border-box;
-    width: 360px;        /* Slightly wider to accommodate the new font */
+    width: 360px;
     max-width: 92vw;
     max-height: 380px;
     padding: 12px;
@@ -90,169 +286,62 @@ html, body {
     flex-direction: column;
     font-size: 14px;
     line-height: 1.5;
-    /* THIS IS THE KEY: Apply the font here! */
     font-family: 'ISOCPEUR', Arial, sans-serif;
+    color: var(--text-primary);
 }
-
-/* Fixes for Leaflet's default wrapper to allow our content to control layout */
 .leaflet-popup-content-wrapper {
     padding: 0;
     max-height: 420px;
     border-radius: 10px;
+    background: #0f1115;
+    border: 1px solid var(--border);
 }
-
 .leaflet-popup-content {
     margin: 0;
     width: auto !important;
     overflow: hidden;
 }
-
-/* Typography inside the popup */
 .pond-popup h4 {
     font-size: 18px;
     font-weight: 600;
     margin: 0 0 8px 0;
-    color: #333;
+    color: var(--text-primary);
 }
-
 .pond-popup h5 {
     font-size: 15px;
     font-weight: 600;
     margin: 12px 0 6px 0;
+    color: var(--text-secondary);
 }
-
-/* Attribute styling */
-.pond-popup .attribute-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 4px;
-}
-
-.pond-popup .attribute-row .label {
-    font-weight: 600;
-}
-
-/* The magic layout for the scrollable area */
-.pond-popup .content-frame {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    min-height: 0;
-}
-
+.pond-popup .attribute-row { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.pond-popup .attribute-row .label { font-weight: 600; color: var(--text-secondary); }
+.pond-popup .content-frame { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .pond-popup .scroll-area {
-    overflow-y: auto;   /* Enable vertical scrolling */
+    overflow-y: auto;
     flex: 1 1 auto;
     min-height: 0;
     padding-right: 8px;
-    border-top: 1px solid #e6e6e6;
+    border-top: 1px solid var(--border);
     margin-top: 10px;
     padding-top: 6px;
 }
 
-/* --- Find and replace your existing table styles with this --- */
-
-.pond-popup .info-table {
-    width: 100%;
-    margin-top: 5px;
-    border-collapse: collapse;
-}
-
+/* Popup table */
+.pond-popup .info-table { width: 100%; margin-top: 5px; border-collapse: collapse; color: var(--text-primary); }
 .pond-popup .info-table thead th {
-    position: sticky;
-    top: 0;
-    background: #fdfdfd;
-    z-index: 1;
+    position: sticky; top: 0; background: #141821; z-index: 1; color: var(--text-secondary);
 }
-
-/* This is the main rule for all cells */
 .pond-popup .info-table th,
 .pond-popup .info-table td {
-    border: 1px solid #ddd;
+    border: 1px solid var(--border);
     padding: 6px 8px;
     font-size: 13px;
     min-width: 80px;
-    /* THIS IS THE KEY CHANGE: Set default alignment to center */
     text-align: center;
 }
-
-/* This rule specifically overrides the first column to be left-aligned */
 .pond-popup .info-table th:first-child,
 .pond-popup .info-table td:first-child {
     text-align: left;
-}
-
-/* This ensures the headers are bold (headers are already centered by the main rule) */
-.pond-popup .info-table th {
-    font-weight: 600;
-    text-align: center; /* Center the headers */
-}
-
-/* --- COORDINATE SEARCH BOX STYLES --- */
-
-.coordinate-search-container {
-    position: fixed; /* Keep this as fixed */
-    top: 10px;
-    left: 50px; /* Position next to zoom controls */
-    z-index: 1000;
-    background: white;
-    border: 2px solid rgba(0,0,0,0.2);
-    border-radius: 4px;
-    box-shadow: 0 1px 5px rgba(0,0,0,0.4);
-    padding: 5px;
-    font-family: 'ISOCPEUR', Arial, sans-serif;
-    display: flex;
-    align-items: center;
-    width: 250px; /* Fixed width to prevent stretching */
-    box-sizing: border-box;
-}
-
-.coordinate-search-input {
-    border: none;
-    outline: none;
-    font-size: 12px;
-    width: 100%;
-    padding: 3px 25px 3px 5px; /* Add right padding for clear button */
-    background: transparent;
-    font-family: 'ISOCPEUR', Arial, sans-serif;
-    box-sizing: border-box;
-    flex: 1;
-}
-
-.coordinate-search-input::placeholder {
-    color: #999;
-    font-style: italic;
-}
-
-.coordinate-search-clear {
-    position: absolute;
-    right: 8px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background-color: #ccc;
-    color: white;
-    border: none;
-    cursor: pointer;
-    font-size: 12px;
-    line-height: 1;
-    display: none; /* Hidden by default */
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    transition: background-color 0.2s;
-    flex-shrink: 0;
-}
-
-.coordinate-search-clear:hover {
-    background-color: #999;
-}
-
-.coordinate-search-clear.show {
-    display: flex;
 }
 
 /* --- SEARCH LOCATION POPUP STYLING --- */
@@ -262,229 +351,95 @@ html, body {
     padding: 8px 12px;
     min-width: 160px;
     line-height: 1.4;
+    color: var(--text-primary);
 }
-
 .search-location-popup strong {
     display: block;
     margin-bottom: 6px;
     font-size: 14px;
-    color: #333;
+    color: var(--text-primary);
 }
-
 .search-location-popup .coordinates {
     font-size: 12px;
-    color: #666;
-    margin: 2px 0;
+    color: var(--text-secondary);
 }
-
-/* Ensure the popup content wrapper has enough padding to avoid overlap with close button */
 .leaflet-popup-content-wrapper.search-popup {
-    padding: 8px 25px 8px 8px; /* Extra right padding for close button */
+    padding: 8px 25px 8px 8px;
     min-width: 180px;
 }
 
 /* Mobile responsive adjustments */
 @media (max-width: 768px) {
     .coordinate-search-container {
-        top: auto; /* Remove top positioning */
-        bottom: 72px; /* lift above sticky footer to avoid overlap (was 20px) */
-        left: 10px; /* Align with left margin */
-        right: 10px; /* Add right margin */
-        width: auto; /* Allow responsive width */
-        max-width: calc(100vw - 20px); /* Full width minus margins */
-        min-width: 200px; /* Minimum usable width */
+        top: auto;
+        bottom: 72px;
+        left: 10px;
+        right: 10px;
+        width: auto;
+        max-width: calc(100vw - 20px);
+        min-width: 200px;
     }
-    
-    .coordinate-search-input {
-        font-size: 16px; /* 16px+ prevents zoom on iOS */
-        min-width: 0; /* Allow input to shrink if needed */
-    }
-    .search-location-popup {
-        min-width: 140px;
-        padding: 6px 10px;
-    }
-    .leaflet-popup-content-wrapper.search-popup {
-        padding: 6px 22px 6px 6px;
-        min-width: 160px;
-    }
+    .coordinate-search-input { font-size: 16px; min-width: 0; color: var(--text-primary); }
+    .search-location-popup { min-width: 140px; padding: 6px 10px; }
+    .leaflet-popup-content-wrapper.search-popup { padding: 6px 22px 6px 6px; min-width: 160px; }
 }
 
-/* --- WELCOME MODAL STYLES --- */
-.welcome-modal[aria-hidden="true"] {
-    display: none;
-}
-
-.welcome-modal {
-    position: fixed;
-    inset: 0;
-    z-index: 2000; /* Above Leaflet controls */
-    display: block;
-    pointer-events: none; /* container itself doesn't capture events */
-}
-
-.welcome-backdrop {
-    position: absolute;
-    inset: 0;
-    background: rgba(0,0,0,0.45);
-    opacity: 0;
-    transition: opacity 180ms ease-out;
-    pointer-events: auto; /* click to dismiss */
-}
-
-.welcome-dialog {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -46%); /* start slightly up for subtle motion */
-    width: min(92vw, 520px);
-    max-height: min(80vh, 520px);
-    background: #ffffff;
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.25);
-    padding: 18px 16px 16px 16px;
-    box-sizing: border-box;
-    font-family: 'ISOCPEUR', Arial, sans-serif !important; /* enforce ISO font */
-    color: #222;
-    opacity: 0;
-    transition: opacity 180ms ease-out, transform 200ms ease-out;
-    pointer-events: auto; /* allow interaction inside */
-}
-
-.welcome-modal[aria-hidden="false"] .welcome-backdrop {
-    opacity: 1;
-}
-
-.welcome-modal[aria-hidden="false"] .welcome-dialog {
-    opacity: 1;
-    transform: translate(-50%, -50%);
-}
-
-.welcome-dialog h2 {
-    margin: 0 28px 10px 0; /* leave space for close */
-    font-size: clamp(18px, 2.8vw, 22px);
-    line-height: 1.25;
-    color: #111;
-    font-family: 'ISOCPEUR', Arial, sans-serif !important; /* enforce ISO font */
-}
-
-.welcome-dialog p {
-    margin: 8px 0;
-    font-size: clamp(13px, 2.4vw, 15px);
-    line-height: 1.45;
-    color: #444;
-    font-family: 'ISOCPEUR', Arial, sans-serif !important; /* enforce ISO font */
-}
-
-.welcome-action {
-    display: inline-block;
-    margin-top: 12px;
-    background: #0b5fff;
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    padding: 10px 14px;
-    font-size: clamp(14px, 3.4vw, 16px);
-    font-weight: 600;
-    cursor: pointer;
-    box-shadow: 0 2px 0 rgba(0,0,0,0.08);
-    font-family: 'ISOCPEUR', Arial, sans-serif !important; /* enforce ISO font */
-}
-
-.welcome-action:hover {
-    background: #084bd1;
-}
-
-.welcome-close {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    border: none;
-    background: #f1f3f5;
-    color: #333;
-    font-size: 18px;
-    line-height: 32px;
-    cursor: pointer;
-    font-family: 'ISOCPEUR', Arial, sans-serif !important; /* enforce ISO font */
-}
-
-.welcome-close:hover {
-    background: #e9ecef;
-}
-
-/* Compact tweaks for small phones */
-@media (max-width: 400px) {
-    .welcome-dialog {
-        padding: 14px 12px 12px 12px;
-        border-radius: 10px;
-    }
-    .welcome-close {
-        top: 6px;
-        right: 6px;
-    }
-}
 /* --- SITE LAYOUT TO ACCOMMODATE FOOTER --- */
-html, body {
-    height: 100%;
-}
-body {
-    display: flex;
-    flex-direction: column;
-}
-#map {
-    flex: 1 1 auto; /* Map grows to fill space above footer */
-    height: auto;   /* Let flexbox control height */
-    padding-bottom: 60px; /* add space so bottom UI isn't hidden by footer */
-}
+html, body { height: 100%; }
+body { display: flex; flex-direction: column; }
+#map { flex: 1 1 auto; height: auto; padding-bottom: 60px; }
 
-/* --- THIN FOOTER --- */
+/* --- THIN FOOTER (dark) --- */
 .site-footer {
-    background: #ffffff;
-    border-top: 1px solid #e5e5e5;
-    color: #444;
+    background: #080808;
+    border-top: 1px solid var(--border);
+    color: var(--text-secondary);
     font-family: 'ISOCPEUR', Arial, sans-serif;
     font-size: 13px;
     line-height: 1;
-    padding: 8px 10px;            /* Thin footprint */
-    z-index: 1100;                /* Above map but below modal (modal uses 2000) */
+    padding: 8px 10px;
+    z-index: 1100;
 }
 .footer-nav {
-    display: inline-flex;        /* inline-flex prevents full-width line breaks at container edge */
+    display: inline-flex;
     gap: 10px;
     align-items: center;
-    flex-wrap: nowrap;           /* keep items on one line */
-    white-space: nowrap;         /* prevent internal wrapping */
-    overflow-x: auto;            /* allow horizontal scroll instead of wrapping */
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
 }
 .footer-link {
     display: inline-block;
     padding: 6px 10px;
-    border: 1px solid #ddd;
+    border: 1px solid var(--border);
     border-radius: 16px;
-    color: #333;
+    color: var(--text-primary);
     text-decoration: none;
-    background: #f9f9f9;
+    background: #121418;
     transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 .footer-link:hover {
-    background: #f1f1f1;
-    border-color: #ccc;
+    background: #181b20;
+    border-color: #3a3f45;
 }
 @media (max-width: 480px) {
     .site-footer {
         padding: 8px 8px;
-        position: sticky; /* keep footer visible but avoid covering bottom UI */
-        bottom: 6px;      /* lift it slightly above iOS Safari bottom chrome */
+        position: sticky;
+        bottom: 6px;
         z-index: 1100;
+        background: rgba(8,8,8,0.9);
+        backdrop-filter: blur(4px);
     }
-    .footer-link {
-        padding: 6px 8px;
-        font-size: 12px;
-    }
+    .footer-link { padding: 6px 8px; font-size: 12px; }
 }
 
-/* Keep existing file content below */
+/* Chart.js tooltip colors (Canvas-based charts read these via JS) */
+.chartjs-tooltip {
+    background: #0f1115;
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-1);
+}

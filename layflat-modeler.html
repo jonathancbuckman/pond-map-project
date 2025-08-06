@@ -23,8 +23,9 @@
     }
     .site-header {
       padding: 10px;
-      border-bottom: 1px solid #e5e5e5;
-      background: #fff;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-header);
+      color: var(--text-primary);
       font-family: 'ISOCPEUR', Arial, sans-serif;
     }
     .form-grid {
@@ -43,12 +44,12 @@
     }
     .field input[type="number"], .field select, .field input[type="file"] {
       padding: 8px 10px;
-      border: 1px solid #ddd;
+      border: 1px solid var(--border);
       border-radius: 6px;
       font-size: 14px;
       font-family: 'ISOCPEUR', Arial, sans-serif;
-      background: #fff;
-      color: #222;
+      background: #121418;
+      color: var(--text-primary);
     }
     .radio-row {
       display: flex;
@@ -57,8 +58,8 @@
       font-size: 14px;
     }
     .section-card {
-      background: #fff;
-      border: 1px solid #e5e5e5;
+      background: var(--bg-graph);
+      border: 1px solid var(--border);
       border-radius: 10px;
       padding: 14px;
       margin-top: 14px;
@@ -66,32 +67,32 @@
     .section-card h3 {
       margin: 0 0 10px 0;
       font-size: 16px;
+      color: var(--text-primary);
     }
     .btn {
       display: inline-block;
       padding: 8px 12px;
-      border: 1px solid #ddd;
+      border: 1px solid var(--accent);
       border-radius: 8px;
-      background: #0b5fff;
+      background: var(--accent);
       color: #fff;
       text-decoration: none;
       cursor: pointer;
       font-family: 'ISOCPEUR', Arial, sans-serif;
       font-size: 14px;
-      border-color: #084bd1;
     }
     .btn[disabled] {
       opacity: 0.65;
       cursor: not-allowed;
     }
     .btn.secondary {
-      background: #f9f9f9;
-      color: #333;
-      border-color: #ddd;
+      background: #14171c;
+      color: var(--text-primary);
+      border-color: var(--border);
     }
     .inline-help {
       font-size: 12px;
-      color: #666;
+      color: var(--text-muted);
     }
     .results-table {
       width: 100%;
@@ -99,12 +100,14 @@
       font-size: 14px;
     }
     .results-table th, .results-table td {
-      border: 1px solid #e5e5e5;
+      border: 1px solid var(--border);
       padding: 6px 8px;
+      color: var(--text-primary);
     }
     .results-table th {
-      background: #f8f8f8;
+      background: #1a1d24;
       text-align: left;
+      color: var(--text-secondary);
     }
     .badge {
       display: inline-block;
@@ -117,18 +120,21 @@
     .badge.bad { background: #dc3545; }
     .warnings {
       margin: 8px 0 0 18px;
-      color: #b58900;
+      color: #e1b84a;
     }
     .chart-box {
       position: relative;
       height: 320px;
       width: 100%;
+      background: #141821;
+      border: 1px solid var(--border);
+      border-radius: 10px;
     }
     /* Map preview box */
     #busy-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(255,255,255,0.75);
+      background: rgba(0,0,0,0.45);
       z-index: 3000;
       display: none;
       align-items: center;
@@ -136,21 +142,21 @@
       backdrop-filter: blur(1px);
     }
     .busy-card {
-      background: #ffffff;
-      border: 1px solid #e5e5e5;
+      background: #0f1115;
+      border: 1px solid var(--border);
       border-radius: 10px;
       padding: 14px 16px;
-      box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.25);
       font-family: 'ISOCPEUR', Arial, sans-serif;
-      color: #333;
+      color: var(--text-primary);
       min-width: 260px;
       text-align: center;
     }
     .spinner {
       width: 22px;
       height: 22px;
-      border: 3px solid #cfd8ff;
-      border-top-color: #0b5fff;
+      border: 3px solid #283a66;
+      border-top-color: var(--accent);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
       margin-right: 10px;
@@ -162,8 +168,9 @@
     #modeler-map {
       height: 350px;
       width: 100%;
-      border: 1px solid #e5e5e5;
+      border: 1px solid var(--border);
       border-radius: 10px;
+      background: #0f1115;
     }
 
     /* Manual Pump List layout */
@@ -229,7 +236,7 @@
 
   <main class="modeler-wrap" role="main">
     <!-- Introductory guidance -->
-    <section class="section-card" style="background:#fcfcff;">
+    <section class="section-card">
       <h3>How to use this tool</h3>
       <p class="inline-help" style="max-width:880px;">
         This calculator estimates pressure along a layflat hose route. You manually place midline booster pumps on the map and adjust their discharge setpoints to shape the pressure profile. KML only: upload a .kml file that contains a single simple LineString path. KMZ is not supported.
@@ -448,7 +455,21 @@
  
   <!-- Chart.js for pressure plot -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  
+  <script>
+    // Dark theme defaults for Chart.js to mimic reference styling
+    // Set these before creating charts
+    if (window.Chart) {
+      Chart.defaults.color = getComputedStyle(document.documentElement).getPropertyValue('--chart-text').trim() || '#9aa3ad';
+      Chart.defaults.font.family = 'ISOCPEUR, Arial, sans-serif';
+      Chart.defaults.borderColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-grid-minor').trim() || '#1e2630';
+      Chart.defaults.scale.grid.color = getComputedStyle(document.documentElement).getPropertyValue('--chart-grid-minor').trim() || '#1e2630';
+      Chart.defaults.scale.ticks.color = getComputedStyle(document.documentElement).getPropertyValue('--chart-text').trim() || '#9aa3ad';
+      Chart.defaults.plugins.legend.labels.color = getComputedStyle(document.documentElement).getPropertyValue('--chart-text').trim() || '#9aa3ad';
+      Chart.defaults.plugins.tooltip.backgroundColor = '#0f1115';
+      Chart.defaults.plugins.tooltip.borderColor = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#2a2d2f';
+      Chart.defaults.plugins.tooltip.borderWidth = 1;
+    }
+  </script>
 
   <!-- Lightweight client-side gate for Resume link -->
   <script>
@@ -740,6 +761,7 @@
           outPressures.push(p);
           outKinds.push('post');
           pumpIdx++;
+          continue; // prevent applying the current segment loss after pump jump
         }
 
         // Calculate pressure change through current segment
@@ -1123,6 +1145,7 @@
           p = pumps[pumpIdx].discharge;
           outDistances.push(distFt[i]); outPressures.push(p); outKinds.push('post');
           pumpIdx++;
+          continue; // prevent applying the current segment loss after pump jump
         }
         const segLen = distFt[i] - distFt[i-1];
         const dhFt = elevFt[i] - elevFt[i-1];
@@ -1277,9 +1300,8 @@
       if (!Array.isArray(distances) || !Array.isArray(pressures) || !distances.length || !pressures.length) return;
 
       const n = Math.min(distances.length, pressures.length);
-      const eps = 0.02; // overlay offset in ft for vertical pump jump
 
-      // 1) Base dataset: single point per base distance. Keep normals and pre; drop post to remove duplicate-x.
+      // Base dataset (drop 'post' points to avoid duplicate x)
       const basePts = [];
       for (let i = 0; i < n; i++) {
         const k = Array.isArray(kinds) && kinds.length === n ? kinds[i] : 'normal';
@@ -1287,9 +1309,7 @@
         basePts.push({ x: Number(distances[i]), y: Number(pressures[i]) });
       }
 
-      // 2) Overlay dataset: pump markers (single scatter point per pump).
-      // Marker placed at x = pump distance, y = midpoint between pre and post to avoid clashing with the base line.
-      // We carry pre/post on each point for tooltip display.
+      // Pump scatter (midpoint between pre and post for collision-free marker)
       const pumpMarkers = [];
       if (Array.isArray(kinds) && kinds.length === n) {
         for (let i = 0; i < n - 1; i++) {
@@ -1303,6 +1323,15 @@
         }
       }
 
+      // Resolve CSS variables to JS for colors
+      const css = getComputedStyle(document.documentElement);
+      const lineColor = css.getPropertyValue('--chart-line').trim() || '#3b83f7';
+      const fillColor = css.getPropertyValue('--chart-fill').trim() || 'rgba(59,131,247,0.12)';
+      const pumpColor = css.getPropertyValue('--chart-pump').trim() || '#ff7f0e';
+      const gridMajor = css.getPropertyValue('--chart-grid-major').trim() || '#2b3644';
+      const gridMinor = css.getPropertyValue('--chart-grid-minor').trim() || '#1e2630';
+      const axisText = css.getPropertyValue('--chart-text').trim() || '#9aa3ad';
+
       chartInstance = new Chart(chartCanvas.getContext('2d'), {
         type: 'line',
         data: {
@@ -1311,24 +1340,24 @@
               label: 'Pressure (PSI)',
               data: basePts,
               parsing: false,
-              borderColor: '#0b5fff',
-              backgroundColor: 'rgba(11,95,255,0.10)',
-              pointRadius: 1.5,
-              tension: 0,
+              borderColor: lineColor,
+              backgroundColor: fillColor,
+              pointRadius: 0,
+              pointHoverRadius: 2,
+              tension: 0.15,
               fill: false,
-              order: 1
+              borderWidth: 2
             },
             {
               label: 'Pump',
               type: 'scatter',
               data: pumpMarkers,
               parsing: false,
-              pointStyle: 'triangle', // simple pump-like marker; could be customized further
-              pointBackgroundColor: '#ff7f0e',
-              pointBorderColor: '#ff7f0e',
+              pointStyle: 'triangle',
+              pointBackgroundColor: pumpColor,
+              pointBorderColor: pumpColor,
               pointRadius: 6,
-              showLine: false,
-              order: 0
+              showLine: false
             }
           ]
         },
@@ -1339,14 +1368,20 @@
           interaction: { intersect: false, mode: 'nearest' },
           scales: {
             x: {
-              title: { display: true, text: 'Distance (ft)' },
+              title: { display: true, text: 'Distance (ft)', color: axisText },
               type: 'linear',
-              ticks: { callback: (v) => Number(v).toFixed(1) }
+              ticks: { color: axisText, callback: (v) => Number(v).toFixed(1) },
+              grid: { color: gridMinor }
             },
-            y: { title: { display: true, text: 'Pressure (PSI)' }, beginAtZero: true }
+            y: {
+              title: { display: true, text: 'Pressure (PSI)', color: axisText },
+              beginAtZero: true,
+              ticks: { color: axisText },
+              grid: { color: gridMinor }
+            }
           },
           plugins: {
-            legend: { display: true },
+            legend: { display: true, labels: { color: axisText } },
             tooltip: {
               mode: 'nearest',
               itemSort: (a, b) => (a.datasetIndex - b.datasetIndex) || (a.dataIndex - b.dataIndex),
@@ -1358,7 +1393,6 @@
                 },
                 label: (item) => {
                   if (item.datasetIndex === 1) {
-                    // Pump marker: read pre/post we stored on the raw data object
                     const raw = item.raw || {};
                     const pre = typeof raw.__pre === 'number' ? raw.__pre : null;
                     const post = typeof raw.__post === 'number' ? raw.__post : null;
@@ -1414,30 +1448,33 @@
       // Ensure section visible
       if (elElevChartSection) elElevChartSection.style.display = 'block';
 
+      const css = getComputedStyle(document.documentElement);
+      const lineColor = css.getPropertyValue('--chart-line').trim() || 'rgba(11,95,255,0.85)';
+      const fillColor = css.getPropertyValue('--chart-fill').trim() || 'rgba(11,95,255,0.20)';
+      const pumpColor = css.getPropertyValue('--chart-pump').trim() || '#000';
+      const gridMinor = css.getPropertyValue('--chart-grid-minor').trim() || '#1e2630';
+      const axisText = css.getPropertyValue('--chart-text').trim() || '#9aa3ad';
+
       elevChartInstance = new Chart(elevChartCanvas.getContext('2d'), {
         type: 'line',
         data: {
-          // Use a linear scale for X with numeric miles to avoid category artifacts
           datasets: [
             {
-              // Draw the pumps above the line by giving a higher dataset index and parsing order
               label: 'Elevation (ft)',
               data: miles.slice(0, lineData.length).map((m, i) => ({ x: m, y: lineData[i] })),
-              borderColor: 'rgba(11,95,255,0.85)',
-              backgroundColor: 'rgba(11,95,255,0.20)',
+              borderColor: lineColor,
+              backgroundColor: fillColor,
               pointRadius: 0,
-              tension: 0.1,
-              order: 1
+              tension: 0.15
             },
             {
               label: 'Pump',
               type: 'scatter',
-              data: pumpPoints.map(p => ({ x: miles[p.x], y: p.y })), // convert index -> miles
-              pointBackgroundColor: '#000',
-              pointBorderColor: '#000',
+              data: pumpPoints.map(p => ({ x: miles[p.x], y: p.y })),
+              pointBackgroundColor: pumpColor,
+              pointBorderColor: pumpColor,
               pointRadius: 6,
-              showLine: false,
-              order: 0
+              showLine: false
             }
           ]
         },
@@ -1447,25 +1484,27 @@
           parsing: false,
           scales: {
             x: {
-              title: { display: true, text: 'Line Distance (miles)' },
+              title: { display: true, text: 'Line Distance (miles)', color: axisText },
               type: 'linear',
               ticks: {
                 callback: (value) => Number(value).toFixed(2),
                 maxRotation: 60,
-                minRotation: 45
-              }
+                minRotation: 45,
+                color: axisText
+              },
+              grid: { color: gridMinor }
             },
             y: {
-              title: { display: true, text: 'Elevation (ft)' },
-              beginAtZero: false
+              title: { display: true, text: 'Elevation (ft)', color: axisText },
+              beginAtZero: false,
+              ticks: { color: axisText },
+              grid: { color: gridMinor }
             }
           },
           plugins: {
-            legend: { display: true }
+            legend: { display: true, labels: { color: axisText } }
           },
-          elements: {
-            line: { spanGaps: true }
-          }
+          elements: { line: { spanGaps: true } }
         }
       });
     }
