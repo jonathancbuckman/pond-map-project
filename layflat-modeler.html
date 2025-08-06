@@ -504,6 +504,10 @@
     const BARRELS_TO_GALLONS = 42.0;
     const PSI_PER_FOOT_WATER = 0.433;
 
+    // Pump icon image (forces distinct rendering path to ensure on-top layering)
+    const pumpIcon = new Image(14, 14);
+    pumpIcon.src = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><path d="M7 0L14 10.5H0z" fill="#ff7f0e"/></svg>');
+
     // Backend proxy endpoint hosted on PythonAnywhere (Flask).
     // Prefer this to eliminate CORS/proxy/JSONP issues.
     const BACKEND_ELEV_ENDPOINT = '/elevation';
@@ -1374,15 +1378,14 @@
               type: 'scatter',
               data: pumpMarkers,
               parsing: false,
-              pointStyle: 'triangle',        /* triangle marker for uniformity */
+              pointStyle: pumpIcon,          /* use image icon to enforce layering path */
               pointBackgroundColor: pumpColor,
               pointBorderColor: pumpColor,
               pointRadius: 7,
               pointHoverRadius: 8,
               showLine: false,
               order: 9999,                   /* very high order to render last */
-              clip: false,                   /* allow marker to render above edges */
-              datasets: undefined            /* ensure no dataset-specific clipping issues */
+              clip: false                    /* allow marker to render above edges */
             }
           ]
         },
@@ -1499,7 +1502,7 @@
               label: 'Pump',
               type: 'scatter',
               data: pumpPoints.map(p => ({ x: miles[p.x], y: p.y })),
-              pointStyle: 'triangle',   /* triangle marker for uniformity */
+              pointStyle: pumpIcon,     /* use image icon to enforce layering path */
               pointBackgroundColor: pumpColor,
               pointBorderColor: pumpColor,
               pointRadius: 7,
