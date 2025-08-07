@@ -397,11 +397,17 @@
         Total distance is derived from your path after downsampling (if applied).
       </p>
       <table class="results-table">
+        <thead>
+          <tr>
+            <th>Metric</th>
+            <th>Value</th>
+          </tr>
+        </thead>
         <tbody>
-          <tr><th>Total Distance (ft)</th><td id="out-total-dist" data-label="Total Distance (ft)">—</td></tr>
-          <tr><th>Used PSI Loss / 100 ft</th><td id="out-used-loss" data-label="Used PSI Loss / 100 ft">—</td></tr>
-          <tr><th>Final Outlet Pressure (PSI)</th><td id="out-final-psi" data-label="Final Outlet Pressure (PSI)">—</td></tr>
-          <tr><th>Midline Pumps Placed</th><td id="out-pump-count" data-label="Midline Pumps Placed">—</td></tr>
+          <tr><td data-label="Total Distance (ft)" data-value="—"><span id="out-total-dist">—</span></td></tr>
+          <tr><td data-label="Used PSI Loss / 100 ft" data-value="—"><span id="out-used-loss">—</span></td></tr>
+          <tr><td data-label="Final Outlet Pressure (PSI)" data-value="—"><span id="out-final-psi">—</span></td></tr>
+          <tr><td data-label="Midline Pumps Placed" data-value="—"><span id="out-pump-count">—</span></td></tr>
         </tbody>
       </table>
       <div id="warnings-wrap" style="margin-top:8px; display:none;">
@@ -1842,12 +1848,24 @@
 
     function renderResults(totalFt, usedPsiLossPer100, finalPressure, pumpCount, warnings, distances, pressures, minSuction, kinds) {
       elResults.style.display = 'block';
-      elOutDist.textContent = totalFt.toFixed(1);
-      elOutUsedLoss.textContent = usedPsiLossPer100.toFixed(4) + ' PSI/100ft';
-      elOutFinalPsi.textContent = finalPressure.toFixed(1);
-      // Ensure we only count midline pumps, not the source pump (source is not included in auto.pumps)
-      const midlineCount = Math.max(0, Number(pumpCount) || 0);
-      elOutPumpCount.textContent = String(midlineCount);
+      
+      // Update both textContent and data-value for mobile table layout
+      const distValue = totalFt.toFixed(1);
+      const lossValue = usedPsiLossPer100.toFixed(4) + ' PSI/100ft';
+      const pressureValue = finalPressure.toFixed(1);
+      const pumpValue = String(Math.max(0, Number(pumpCount) || 0));
+      
+      elOutDist.textContent = distValue;
+      elOutDist.parentElement.setAttribute('data-value', distValue);
+      
+      elOutUsedLoss.textContent = lossValue;
+      elOutUsedLoss.parentElement.setAttribute('data-value', lossValue);
+      
+      elOutFinalPsi.textContent = pressureValue;
+      elOutFinalPsi.parentElement.setAttribute('data-value', pressureValue);
+      
+      elOutPumpCount.textContent = pumpValue;
+      elOutPumpCount.parentElement.setAttribute('data-value', pumpValue);
 
       if (warnings.length) {
         elWarningsWrap.style.display = 'block';
