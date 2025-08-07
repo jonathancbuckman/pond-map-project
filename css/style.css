@@ -872,11 +872,8 @@ body.modeler-page {
         overflow-x: hidden;
     }
     
-    /* Ensure all containers respect viewport width */
-    * {
-        max-width: 100%;
-        box-sizing: border-box;
-    }
+    /* Removed universal max-width rule that broke Leaflet panes and SVG sizing */
+    /* Body rule above is sufficient to prevent horizontal scrolling on small screens */
     
     /* Results table smaller screens */
     .results-table td:before {

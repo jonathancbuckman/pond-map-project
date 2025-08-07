@@ -434,9 +434,12 @@ map.createPane('okBasePane');
 map.getPane('okBasePane').style.zIndex = '250'; // below overlayPane (~400)
 map.getPane('okBasePane').style.pointerEvents = 'none'; // NEVER intercept clicks
 
-// Make the page background white so the map looks white behind the outline
-// (useful when no tiles are shown)
-document.body.style.background = '#ffffff';
+// Set the map container background to match theme when using the outline-only basemap
+const mapEl = document.getElementById('map');
+if (mapEl) {
+  // Use the CSS variable so it stays consistent with the dark theme
+  mapEl.style.backgroundColor = 'var(--bg-header)';
+}
 
 // Oklahoma outline "blank" basemap
 const oklahomaOutline = L.layerGroup();
@@ -447,11 +450,13 @@ fetch('data/oklahoma_boundary.geojson')
       pane: 'okBasePane',
       interactive: false,
       style: {
-        color: '#666',
+        // Use lighter stroke so it is visible on dark background
+        color: '#a1a3a4', // matches var(--text-muted)
         weight: 2,
         opacity: 1,
-        fillColor: '#ffffff',
-        fillOpacity: 0.0
+        // Match the map background and make it opaque so the outline shows cleanly
+        fillColor: 'var(--bg-header)',
+        fillOpacity: 1.0
       }
     });
     outline.addTo(oklahomaOutline);
