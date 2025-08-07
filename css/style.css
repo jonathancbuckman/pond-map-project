@@ -572,14 +572,16 @@ body.modeler-page {
         position: relative !important;
         bottom: auto !important;
         margin-top: 0 !important;
+        z-index: 1100 !important; /* ensure footer stays above map children */
     }
     
     /* Ensure body has proper flex layout */
     body {
         display: flex !important;
         flex-direction: column !important;
-        min-height: 100vh !important;
+        min-height: 100svh !important; /* small viewport height for mobile chrome UI */
         margin: 0 !important;
+        overflow-x: hidden !important;
     }
     
     /* Make map flexible but ensure proper height */
@@ -591,6 +593,7 @@ body.modeler-page {
         position: relative !important;
         overflow: hidden !important; /* guard against children expanding map beyond viewport */
         contain: layout paint size !important; /* prevent descendants from affecting map's size */
+        z-index: auto !important; /* avoid stacking above footer */
     }
     
     /* Ensure modeler page layout works with flex */
@@ -837,6 +840,7 @@ body.modeler-page {
         min-height: 100vh !important;
         background: var(--bg-header) !important;
         margin: 0 !important;
+        overflow-x: hidden !important;
     }
     #map {
         flex: 1 1 auto !important;
@@ -846,6 +850,7 @@ body.modeler-page {
         width: 100% !important;
         position: relative !important; /* anchor absolute children like search box */
         overflow: hidden !important;   /* prevent accidental overflow covering footer */
+        z-index: auto !important;      /* ensure map doesn't overlay footer */
     }
 }
 
@@ -917,12 +922,15 @@ body {
     background-color: var(--bg-header);
     overflow-x: hidden;
 }
-
+ 
 #map {
     /* CRITICAL: Let the map grow to fill available space.
        Do NOT set a fixed height like 100% or 100vh. */
     flex: 1 1 auto;
     height: auto; /* Let flexbox control the height */
+    position: relative; /* keep absolute children anchored within map */
+    z-index: auto;      /* avoid creating a stacking context above footer */
+    overflow: hidden;   /* guard against children overflowing and covering footer */
 }
 
 .site-footer {
@@ -980,8 +988,9 @@ body {
 @media (max-width: 480px) {
     .site-footer {
         padding: 8px 8px;
-        position: sticky; /* keep footer visible when content shorter than viewport */
-        bottom: 0;
+        /* Keep footer in normal flow to avoid overlap issues with absolute map children */
+        position: relative;
+        bottom: auto;
         z-index: 1100;
         background: var(--bg-header);
         backdrop-filter: none;
