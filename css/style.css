@@ -160,13 +160,54 @@ body.modeler-page {
 /* Tables */
 .results-table {
     color: var(--text-primary);
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed; /* stable column widths */
 }
 .results-table th, .results-table td {
     border: 1px solid var(--border);
+    padding: 8px 10px;
+    vertical-align: middle;
 }
 .results-table th {
     background: var(--bg-surface);
     color: var(--text-secondary);
+    text-align: left;
+}
+.results-table td {
+    color: var(--text-primary);
+}
+/* When using a two-column layout (Label | Value), enforce alignment */
+.results-table td[data-label],
+.results-table th[data-label] {
+    width: 55%;
+    text-align: left;
+}
+.results-table td[data-value],
+.results-table th[data-value] {
+    width: 45%;
+    text-align: right;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+/* Fallback: if custom data attributes aren't present, align second column right */
+.results-table tr > td:nth-child(2) {
+    text-align: right;
+    font-weight: 600;
+}
+/* Ensure any nested span for value aligns correctly */
+.results-table .value {
+    display: inline-block;
+    min-width: 0;
+    text-align: right;
+    font-weight: 600;
+}
+.results-table .label {
+    display: inline-block;
+    min-width: 0;
+    text-align: left;
+    color: var(--text-secondary);
+    font-weight: 600;
 }
 .warnings {
     color: var(--warning);
@@ -630,48 +671,77 @@ body.modeler-page {
         overflow-x: hidden;
     }
     
-    /* Manual pump list mobile layout - CRITICAL FIX */
+    /* Manual pump list mobile layout - ENHANCED MOBILE STACKING */
     .manual-pump-row {
-        grid-template-columns: 1fr;
-        gap: 8px;
-        padding: 12px;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        margin-bottom: 8px;
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+        padding: 12px !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 8px !important;
+        margin-bottom: 10px !important;
+        background: var(--bg-surface) !important;
     }
-    
+
+    /* Ensure each column stacks cleanly and spans full width */
     .mp-col--id,
     .mp-col--inlet,
     .mp-col--disch,
     .mp-col--actions {
-        grid-column: 1;
-        min-width: 0;
+        grid-column: 1 / -1 !important;
+        min-width: 0 !important;
+        width: 100% !important;
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        align-items: start !important;
+        gap: 6px !important;
     }
-    
+
+    /* Make discharge sub-grid vertical on mobile */
     .mp-col--disch {
-        grid-template-columns: 1fr;
-        gap: 4px;
+        grid-template-columns: 1fr !important;
+        gap: 6px !important;
     }
-    
+
+    /* Labels align left and occupy their own line for clarity */
     .mp-label {
-        text-align: left;
-        font-weight: 600;
+        text-align: left !important;
+        font-weight: 600 !important;
+        color: var(--text-secondary) !important;
+        margin: 0 !important;
     }
-    
-    .mp-input {
-        width: 100%;
-        min-width: 0;
-        max-width: 100%;
-        box-sizing: border-box;
+
+    /* Inputs/buttons expand full width with consistent sizing */
+    .mp-input,
+    .mp-col--disch .mp-input,
+    .mp-col--inlet .mp-input,
+    .mp-col--id .mp-input {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
     }
-    
+
+    /* Actions row stacks and fills width */
     .mp-col--actions {
-        justify-content: stretch;
-        margin-top: 8px;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        justify-content: stretch !important;
+        gap: 8px !important;
+        margin-top: 6px !important;
     }
-    
-    .mp-del {
-        width: 100%;
+
+    .mp-del,
+    .mp-add,
+    .mp-btn {
+        width: 100% !important;
+    }
+
+    /* Tighten inner spacing for compact, orderly appearance */
+    .manual-pump-list {
+        display: grid !important;
+        gap: 10px !important;
     }
     
     /* Results table mobile optimization - SIMPLIFIED TO AVOID DUPLICATES */
@@ -721,16 +791,17 @@ body.modeler-page {
         flex: 0 0 auto;
         margin-right: 12px;
         min-width: 120px;
+        text-align: left;
     }
     
-    /* Hide the original content to avoid duplicates - target all child elements */
-    .results-table td * {
+    /* Only hide children if data-value is provided to avoid wiping actual content */
+    .results-table td[data-value] > * {
         display: none !important;
     }
     
-    .results-table td:after {
+    .results-table td[data-value]::after {
         content: attr(data-value);
-        font-weight: normal;
+        font-weight: 600;
         color: var(--text-primary);
         flex: 1;
         text-align: right;
