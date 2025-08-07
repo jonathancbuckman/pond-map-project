@@ -361,7 +361,7 @@
         </div>
       </div>
 
-      <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
+      <div class="btn-group" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
         <button id="run-calc" class="btn">Run Calculation</button>
         <button id="reset-form" class="btn secondary">Reset</button>
         <button id="download-csv" class="btn secondary" title="Download hydraulic data as CSV" disabled>Download CSV</button>
@@ -398,10 +398,10 @@
       </p>
       <table class="results-table">
         <tbody>
-          <tr><th>Total Distance (ft)</th><td id="out-total-dist">—</td></tr>
-          <tr><th>Used PSI Loss / 100 ft</th><td id="out-used-loss">—</td></tr>
-          <tr><th>Final Outlet Pressure (PSI)</th><td id="out-final-psi">—</td></tr>
-          <tr><th>Midline Pumps Placed</th><td id="out-pump-count">—</td></tr>
+          <tr><th>Total Distance (ft)</th><td id="out-total-dist" data-label="Total Distance (ft)">—</td></tr>
+          <tr><th>Used PSI Loss / 100 ft</th><td id="out-used-loss" data-label="Used PSI Loss / 100 ft">—</td></tr>
+          <tr><th>Final Outlet Pressure (PSI)</th><td id="out-final-psi" data-label="Final Outlet Pressure (PSI)">—</td></tr>
+          <tr><th>Midline Pumps Placed</th><td id="out-pump-count" data-label="Midline Pumps Placed">—</td></tr>
         </tbody>
       </table>
       <div id="warnings-wrap" style="margin-top:8px; display:none;">
