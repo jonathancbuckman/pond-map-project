@@ -1435,22 +1435,6 @@
               order: 1,                      /* draw the line first (under) */
               segment: { z: 0 },             /* ensure segments are at low z */
               pointStyle: false              /* no points rendered for line */
-            },
-            {
-              label: 'Pump',
-              type: 'scatter',
-              data: pumpMarkers,
-              parsing: false,
-              pointStyle: pumpIcon,          /* icon still used for hit-testing/legend */
-              pointBackgroundColor: pumpColor,
-              pointBorderColor: pumpColor,
-              pointRadius: 7,
-              pointHoverRadius: 8,
-              showLine: false,
-              order: 9999,                   /* keep high order */
-              clip: false,
-              // Disable default element drawing; plugin will render markers on top
-              showLine: false
             }
           ]
         },
