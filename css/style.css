@@ -821,6 +821,7 @@ body.modeler-page {
         flex-direction: column !important;
         min-height: 100vh !important;
         background: var(--bg-header) !important;
+        margin: 0 !important;
     }
     
     #map {
@@ -828,6 +829,7 @@ body.modeler-page {
         height: auto !important;
         min-height: 0 !important;
         background: var(--bg-header) !important;
+        width: 100% !important;
     }
 }
 
@@ -886,8 +888,40 @@ body.modeler-page {
     }
 }
 
-/* --- SITE LAYOUT TO ACCOMMODATE FOOTER --- */
-/* Consolidated into top-level html, body and #map rules above to avoid duplication */
+/* --- CORRECTED SITE LAYOUT FOR STICKY FOOTER --- */
+html {
+    height: 100%; /* Needed for some browser compatibility */
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh; /* Ensure body takes at least full screen height */
+    margin: 0;
+    background-color: var(--bg-header);
+}
+
+#map {
+    /* CRITICAL: Let the map grow to fill available space.
+       Do NOT set a fixed height like 100% or 100vh. */
+    flex: 1 1 auto;
+    height: auto; /* Let flexbox control the height */
+}
+
+.site-footer {
+    /* Prevent the footer from shrinking */
+    flex-shrink: 0;
+    position: relative; /* Ensure it stays in the document flow */
+
+    /* Existing footer styles kept consistent with theme */
+    background: var(--bg-header);
+    border-top: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-family: 'ISOCPEUR', Arial, sans-serif;
+    font-size: 13px;
+    padding: 8px 10px;
+    z-index: 1100;
+}
 
 /* --- THIN FOOTER (dark) --- */
 .site-footer {
