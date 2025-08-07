@@ -166,49 +166,56 @@ body.modeler-page {
 }
 .results-table th, .results-table td {
     border: 1px solid var(--border);
-    padding: 8px 10px;
+    padding: 10px 12px;
     vertical-align: middle;
 }
 .results-table th {
     background: var(--bg-surface);
     color: var(--text-secondary);
     text-align: left;
+    font-weight: 700;
 }
 .results-table td {
     color: var(--text-primary);
 }
-/* When using a two-column layout (Label | Value), enforce alignment */
+
+/* Explicit two-column layout on desktop: first col (Metric) 60%, second col (Value) 40% */
+@media (min-width: 769px) {
+    .results-table colgroup col:first-child { width: 60% !important; }
+    .results-table colgroup col:nth-child(2) { width: 40% !important; }
+
+    /* If no colgroup present, fall back to nth-child widths */
+    .results-table thead th:first-child,
+    .results-table tbody td:first-child {
+        width: 60%;
+        text-align: left;
+        color: var(--text-secondary);
+        font-weight: 600;
+    }
+    .results-table thead th:nth-child(2),
+    .results-table tbody td:nth-child(2) {
+        width: 40%;
+        text-align: right;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    /* If cells contain .label/.value spans, ensure they show correctly */
+    .results-table td .label { display: inline; color: var(--text-secondary); font-weight: 600; }
+    .results-table td .value { display: inline; float: right; text-align: right; font-weight: 700; color: var(--text-primary); }
+}
+/* Attribute-based alignment (works on both desktop and mobile cards) */
 .results-table td[data-label],
-.results-table th[data-label] {
-    width: 55%;
-    text-align: left;
-}
+.results-table th[data-label] { text-align: left; }
 .results-table td[data-value],
-.results-table th[data-value] {
-    width: 45%;
-    text-align: right;
-    font-weight: 600;
-    color: var(--text-primary);
-}
+.results-table th[data-value] { text-align: right; font-weight: 700; color: var(--text-primary); }
+
 /* Fallback: if custom data attributes aren't present, align second column right */
-.results-table tr > td:nth-child(2) {
-    text-align: right;
-    font-weight: 600;
-}
-/* Ensure any nested span for value aligns correctly */
-.results-table .value {
-    display: inline-block;
-    min-width: 0;
-    text-align: right;
-    font-weight: 600;
-}
-.results-table .label {
-    display: inline-block;
-    min-width: 0;
-    text-align: left;
-    color: var(--text-secondary);
-    font-weight: 600;
-}
+.results-table tr > td:nth-child(2) { text-align: right; font-weight: 700; }
+
+/* Ensure any nested span for value/label aligns correctly */
+.results-table .value { display: inline-block; min-width: 0; text-align: right; font-weight: 700; }
+.results-table .label { display: inline-block; min-width: 0; text-align: left; color: var(--text-secondary); font-weight: 600; }
 .warnings {
     color: var(--warning);
 }
@@ -785,7 +792,7 @@ body.modeler-page {
     }
     
     .results-table td:before {
-        /* Always show a label on mobile. Prefer data-label; if missing, fallback to any .label text that exists. */
+        /* Always show a label on mobile. Prefer data-label; if missing, show the .label child if present. */
         content: attr(data-label);
         font-weight: 600;
         color: var(--text-secondary);
@@ -809,7 +816,7 @@ body.modeler-page {
     
     .results-table td[data-value]::after {
         content: attr(data-value);
-        font-weight: 600;
+        font-weight: 700;
         color: var(--text-primary);
         flex: 1;
         text-align: right;
@@ -818,7 +825,7 @@ body.modeler-page {
     .results-table td:not([data-value]) .value {
         display: inline !important;
         margin-left: auto;
-        font-weight: 600;
+        font-weight: 700;
         color: var(--text-primary);
         text-align: right;
     }
