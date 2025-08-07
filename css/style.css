@@ -757,6 +757,17 @@ body.modeler-page {
         border-collapse: separate;
         border-spacing: 0;
     }
+
+    /* On mobile, if a row lacks data-label and .label, try to use data-key on first cell as the label */
+    .results-table td:first-child[data-key]:before {
+        content: attr(data-key);
+        font-weight: 600;
+        color: var(--text-secondary);
+        flex: 0 0 auto;
+        margin-right: 12px;
+        min-width: 140px;
+        text-align: left;
+    }
     
     .results-table,
     .results-table tbody,
@@ -952,6 +963,28 @@ body.modeler-page {
     .results-table tbody, .results-table tr { display: table-row-group; }
     .results-table tr { background: transparent; }
     .results-table td { display: table-cell !important; padding: 10px 12px !important; }
+
+    /* Ensure first column always shows a label, even if markup omitted it */
+    .results-table tbody td:first-child {
+        text-align: left !important;
+        color: var(--text-secondary);
+        font-weight: 600;
+        position: relative;
+    }
+    /* Prefer explicit content: .label span shown if present */
+    .results-table tbody td:first-child .label {
+        display: inline;
+        color: var(--text-secondary);
+        font-weight: 600;
+    }
+    /* If cell is empty but has a data-key, synthesize a label from it */
+    .results-table tbody td:first-child[data-key]:empty::before {
+        content: attr(data-key);
+    }
+    /* If truly empty, show a neutral placeholder so numbers are never anonymous */
+    .results-table tbody td:first-child:empty::before {
+        content: "Metric";
+    }
 
     /* If markup uses data attributes, align accordingly */
     .results-table td[data-label] { text-align: left; color: var(--text-secondary); font-weight: 600; }
