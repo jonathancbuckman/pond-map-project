@@ -280,7 +280,7 @@
       <div class="inline-help" style="margin-top:6px; color:var(--text-muted); line-height:1.45;">
         <strong>How friction loss is calculated</strong>: The PSI loss per 100 ft is derived from an empirical lookup table that was measured on a 12‑inch layflat system at various flows (converted from barrels per minute to GPM). For 12" hose, we interpolate between the nearest table points to get the head loss in feet per 100 ft, then convert to PSI using 0.433 PSI/ft of water column.
         <br/><br/>
-        For 14" and 16" hoses, the 12" baseline is scaled using a standard hydraulic similarity relationship where head loss varies with diameter to approximately the 4.87 power. In practice this means larger diameters have proportionally lower friction loss for the same total flow. Mathematically, Loss(target) ≈ Loss(12") × (12 / target_diameter)^4.87. When dual parallel runs are selected, the total flow is split evenly between the hoses and the resulting per‑run loss is divided by the number of runs.
+        For 14" and 16" hoses, the 12" baseline is scaled using a standard hydraulic similarity relationship where head loss varies with diameter to approximately the 4.87 power. In practice this means larger diameters have proportionally lower friction loss for the same total flow. Mathematically, Loss(target) ≈ Loss(12") × (12 / target_diameter)^4.87. When dual parallel runs are selected, the total flow is split evenly between the hoses. For Lookup and Hazen‑Williams, the system friction loss per 100 ft equals the loss of one hose at the per‑hose flow (no additional division). In Manual mode, the entered single‑run loss at the total flow is divided by runs^1.85 to account for the reduced flow per hose.
       </div>
       <div class="form-grid">
         <div class="field">
@@ -331,12 +331,18 @@
           <div class="radio-row">
             <label><input type="radio" name="loss-method" value="lookup" checked> Calculate from Flow & Hose Size</label>
             <label><input type="radio" name="loss-method" value="manual"> Enter PSI Loss Manually</label>
+            <label><input type="radio" name="loss-method" value="hazen"> Hazen Williams</label>
           </div>
           <div class="inline-help">Used to calculate friction loss along LinePath.</div>
         </div>
         <div id="manual-loss-wrap" class="field" style="display:none; margin-top:8px;">
           <label for="manual-loss-psi100">Manual PSI Loss per 100 ft</label>
           <input id="manual-loss-psi100" type="number" step="0.01" min="0" value="0" data-default="0">
+        </div>
+        <div id="hazen-williams-wrap" class="field" style="display:none; margin-top:8px;">
+          <label for="hazen-c-factor">Hose Roughness Coefficient (C-Factor)</label>
+          <input id="hazen-c-factor" type="number" step="1" min="1" value="140" data-default="140">
+          <div class="inline-help">Common values: 150 for new, smooth pipe; 140 for typical use; 100 for old or rough pipe.</div>
         </div>
       </div>
 
@@ -607,6 +613,16 @@
       return headLossFt * PSI_PER_FOOT_WATER;
     }
 
+    function calculateHazenWilliamsLoss(gpm, cFactor, diameterInches) {
+          if (gpm <= 0 || cFactor <= 0 || diameterInches <= 0) return 0;
+          // Hazen-Williams head loss in feet of water per 100 ft:
+          // hf_100ft(ft) = 4.52 * Q^1.85 / (C^1.85 * d^4.87), with Q in GPM and d in inches.
+          const hf_per_100ft = (4.52 * Math.pow(gpm, 1.85)) /
+                           (Math.pow(cFactor, 1.85) * Math.pow(diameterInches, 4.87));
+          // Convert ft of water to PSI per 100 ft (1 ft of water ≈ 0.433 PSI)
+          return hf_per_100ft * PSI_PER_FOOT_WATER;
+        }
+
     // Small helper for retry backoff
     function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -840,6 +856,8 @@
     const lossRadios = document.querySelectorAll('input[name="loss-method"]');
     const elManualWrap = document.getElementById('manual-loss-wrap');
     const elManualPsi100 = document.getElementById('manual-loss-psi100');
+    const elHazenWrap = document.getElementById('hazen-williams-wrap');
+    const elHazenCFactor = document.getElementById('hazen-c-factor');
 
     const elKmlFile = document.getElementById('kml-file');
     const pathDirRadios = document.querySelectorAll('input[name="path-dir"]');
@@ -920,11 +938,13 @@
       for (const r of pathDirRadios) if (r.checked) return r.value;
       return 'source_to_dest';
     }
-    function updateManualVisibility() {
-      elManualWrap.style.display = currentLossMethod() === 'manual' ? 'block' : 'none';
+    function updateLossInputVisibility() {
+      const method = currentLossMethod();
+      elManualWrap.style.display = method === 'manual' ? 'block' : 'none';
+      elHazenWrap.style.display = method === 'hazen' ? 'block' : 'none';
     }
-    lossRadios.forEach(r => r.addEventListener('change', updateManualVisibility));
-    updateManualVisibility();
+    lossRadios.forEach(r => r.addEventListener('change', updateLossInputVisibility));
+    updateLossInputVisibility();
 
     function resetForm() {
       // Reset inputs to their initial defaults as in markup
@@ -943,20 +963,23 @@
       valOrAttr(elMidlinePsi);
       valOrAttr(elMaxHose);
       valOrAttr(elManualPsi100);
+      valOrAttr(elHazenCFactor);
       valOrAttr(elHoseRuns);
 
       // Reset radios to their original checked state using DOM attributes
       const lossLookup = document.querySelector('input[name="loss-method"][value="lookup"]');
       const lossManual = document.querySelector('input[name="loss-method"][value="manual"]');
+      const lossHazen = document.querySelector('input[name="loss-method"][value="hazen"]');
       if (lossLookup) lossLookup.checked = lossLookup.hasAttribute('checked');
       if (lossManual) lossManual.checked = lossManual.hasAttribute('checked');
+      if (lossHazen) lossHazen.checked = lossHazen.hasAttribute('checked');
 
       const pathSrcToDest = document.querySelector('input[name="path-dir"][value="source_to_dest"]');
       const pathDestToSrc = document.querySelector('input[name="path-dir"][value="dest_to_source"]');
       if (pathSrcToDest) pathSrcToDest.checked = pathSrcToDest.hasAttribute('checked');
       if (pathDestToSrc) pathDestToSrc.checked = pathDestToSrc.hasAttribute('checked');
 
-      updateManualVisibility();
+      updateLossInputVisibility();
 
       // Hide main sections
       elResults.style.display = 'none';
@@ -1785,22 +1808,36 @@
       list.push(msg);
     }
 
-    function determinePsiLossPer100(flowBpm, hoseIn, lossMethod, manualVal, warnings, runsCount) {
+    function determinePsiLossPer100(flowBpm, hoseIn, lossMethod, manualVal, hazenCFactor, warnings, runsCount) {
       const runs = Math.max(1, Number(runsCount) || 1);
       let usedPsiLossPer100 = 0;
 
       if (lossMethod === 'manual') {
-        if (!(manualVal >= 0)) {
-          collectWarningsInto(warnings, 'Manual PSI loss per 100 ft must be >= 0.');
+              if (!(manualVal >= 0)) {
+                collectWarningsInto(warnings, 'Manual PSI loss per 100 ft must be >= 0.');
+                usedPsiLossPer100 = 0;
+              } else {
+                // Option B:
+                // Assume manualVal is the single-run loss at the total flow (PSI/100 ft).
+                // For N identical parallel runs sharing flow evenly, scale by runs^-1.85.
+                const exponent = 1.85;
+                usedPsiLossPer100 = runs > 1 ? manualVal / Math.pow(runs, exponent) : manualVal;
+              }
+            } else if (lossMethod === 'hazen') {
+        const totalGpm = bpmToGpm(flowBpm);
+        const perHoseGpm = totalGpm / runs;
+        if (!(hazenCFactor > 0)) {
+          collectWarningsInto(warnings, 'Hazen-Williams C-Factor must be > 0.');
           usedPsiLossPer100 = 0;
         } else {
-          // For parallel identical hoses carrying the same total flow, head loss halves for 2 runs.
-          usedPsiLossPer100 = manualVal / runs;
+          // Calculate loss for a single hose at the per-hose flow rate.
+          // For parallel runs, this per-hose loss IS the total system loss.
+          const lossPerHose = calculateHazenWilliamsLoss(perHoseGpm, hazenCFactor, hoseIn);
+          usedPsiLossPer100 = lossPerHose;
         }
-      } else {
-        // Lookup mode: compute loss at per-hose flow when using multiple runs,
-        // then combine in parallel which divides head loss by number of runs.
-        // Total flow is split evenly across runs.
+      } else { // 'lookup'
+        // Lookup mode: compute loss at per-hose flow when using multiple runs.
+        // The total flow is split evenly across runs.
         const totalGpm = bpmToGpm(flowBpm);
         const perHoseGpm = totalGpm / runs;
 
@@ -1811,8 +1848,9 @@
         } else {
           const scaledHeadLoss_perHose = scaleHeadLossByDiameter(headLoss12_perHose, hoseIn);
           const psiPerHose = headLossFtToPsi(scaledHeadLoss_perHose);
-          // Parallel identical hoses reduce head loss by factor of runs
-          usedPsiLossPer100 = psiPerHose / runs;
+          // For parallel runs, the calculated loss for a single hose at the reduced flow rate
+          // is the correct total system loss. The previous division by `runs` was incorrect.
+          usedPsiLossPer100 = psiPerHose;
         }
       }
       return usedPsiLossPer100;
@@ -1870,6 +1908,7 @@
         maxHose: Number(elMaxHose.value),
         lossMethod: currentLossMethod(),
         manualPsi100: Number(elManualPsi100.value),
+        hazenCFactor: Number(elHazenCFactor.value),
         placementStrategy: 'manual',
         pathDir: currentPathDir(),
         results: {
@@ -1898,6 +1937,7 @@
       const maxHose = Number(elMaxHose.value);
       const lossMethod = currentLossMethod();
       const manualPsi100 = Number(elManualPsi100.value);
+      const hazenCFactor = Number(elHazenCFactor.value);
       const runsCount = Math.max(1, Number(elHoseRuns && elHoseRuns.value ? elHoseRuns.value : 1));
       const pathDir = currentPathDir();
       const placementStrategy = 'manual';
@@ -1909,7 +1949,7 @@
       if (sourcePsi > maxHose) warnings.push(`Source discharge (${sourcePsi.toFixed(1)} PSI) exceeds hose max (${maxHose.toFixed(1)} PSI).`);
 
       // Determine friction loss
-      const usedPsiLossPer100 = determinePsiLossPer100(flowBpm, hoseIn, lossMethod, manualPsi100, warnings, runsCount);
+      const usedPsiLossPer100 = determinePsiLossPer100(flowBpm, hoseIn, lossMethod, manualPsi100, hazenCFactor, warnings, runsCount);
 
       // Path handling
       let latlngs = [];
@@ -2314,7 +2354,7 @@
 
     // Friction loss method radios
     lossRadios.forEach(r => {
-      r.addEventListener('change', () => { updateManualVisibility(); clearDerivedUI(); });
+      r.addEventListener('change', () => { updateLossInputVisibility(); clearDerivedUI(); });
     });
 
     // Path direction radios (reverse path)
