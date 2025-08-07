@@ -101,7 +101,7 @@ body.modeler-page {
 .field select,
 .field input[type="file"],
 .mp-input {
-    -webkit-appearance: none;
+    appearance: none;
     background-color: var(--bg-card) !important;
     color: var(--text-primary) !important;
     border: 1px solid var(--border) !important;
@@ -118,7 +118,7 @@ body.modeler-page {
 
 /* Buttons */
 .btn {
-    -webkit-appearance: none;
+    appearance: none;
     border: 1px solid var(--accent) !important;
     background-color: var(--accent) !important;
     color: #fff !important;
