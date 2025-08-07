@@ -236,35 +236,18 @@
   </header>
 
   <main class="modeler-wrap" role="main">
+:def_line:240
+-------
+:def_line:240
+-------
     <!-- Introductory guidance -->
     <section class="section-card">
-      <h3>Hello</h3>
+      <h3>Information</h3>
       <p class="inline-help" style="max-width:880px;">
-        This calculator estimates pressure along a layflat hose route. You manually place midline booster pumps on the map and adjust their discharge setpoints to shape the pressure profile. KML only: upload a .kml file that contains a single simple LineString path. KMZ is not supported.
+        Quick guide: pick your flow (e.g. 100 BPM) and how to estimate the friction loss at that specific flow rate. Lookup (model interpolates PSI/100ft for the flow and hose size based on a conservative empirical table) or Manual (enter PSI/100ft at the specific flow rate). Upload a single KML LineString and click "Run Calculation". KMZ won't work. Click the red path to add midline pumps (drag to snap to vertices along the path; click a marker to delete). Each pump’s Discharge PSI is the pump outlet; the model computes the inlet pressure at that vertex and updates the profile instantly. Long runs at higher flow rates or with steep elevation changes can drive the outlet pressure very low, so add pumps until the outlet reaches your required outlet pressure. The empirical table assumes a typical water transfer manifold trailer with 6" tank hoses.
       </p>
-      <ol class="inline-help" style="max-width:880px; margin-top:6px; padding-left:18px;">
-        <li>Create a KML file containing one LineString that follows your hose path on the ground. You can draw this in Google Earth or other GIS tools.</li>
-        <li>Upload the KML below. Choose the drawing direction so the path begins at your Source pump and ends at the Destination (or reverse if needed).</li>
-        <li>Set your hydraulic inputs (flow, hose diameter, pressure limits). Choose how friction loss is determined (lookup vs manual).</li>
-        <li>Click "Run Calculation". The map will display your path, and “Manual Pumps” mode will be enabled.</li>
-        <li>Place manual midline pumps:
-          <ul style="margin:6px 0 0 18px;">
-            <li>Click along the red path to add a booster pump at that location.</li>
-            <li>Drag a pump marker to move it along the path.</li>
-            <li>Click a marker to delete it.</li>
-            <li>Edit each pump’s “Discharge PSI” in the Manual Pumps panel; the profile updates immediately.</li>
-          </ul>
-        </li>
-        <li>Review outputs:
-          <ul style="margin:6px 0 0 18px;">
-            <li>Map preview of your path and manually placed pumps.</li>
-            <li>Pressure profile chart showing the impact of pump placement and discharge settings.</li>
-            <li>Results summary including total distance, used friction loss, final outlet pressure, and pump count.</li>
-          </ul>
-        </li>
-      </ol>
       <p class="inline-help" style="max-width:880px; margin-top:8px;">
-        Notes: Elevations are sampled from public terrain data and may be approximate. 
+        KML only: upload a single LineString. Elevations are sampled from public terrain data and may be approximate.
       </p>
     </section>
 
