@@ -678,11 +678,11 @@ body.modeler-page {
         overflow-x: hidden;
     }
     
-    /* Manual pump list mobile layout - ENHANCED MOBILE STACKING */
+    /* Manual pump list mobile optimization */
     .manual-pump-row {
-        display: grid !important;
-        grid-template-columns: 1fr !important;
-        gap: 10px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 12px !important;
         padding: 12px !important;
         border: 1px solid var(--border) !important;
         border-radius: 8px !important;
@@ -690,155 +690,88 @@ body.modeler-page {
         background: var(--bg-surface) !important;
     }
 
-    /* Ensure each column stacks cleanly and spans full width */
-    .mp-col--id,
-    .mp-col--inlet,
-    .mp-col--disch,
-    .mp-col--actions {
-        grid-column: 1 / -1 !important;
-        min-width: 0 !important;
-        width: 100% !important;
-        display: grid !important;
-        grid-template-columns: 1fr !important;
-        align-items: start !important;
-        gap: 6px !important;
-    }
-
-    /* Make discharge sub-grid vertical on mobile */
-    .mp-col--disch {
-        grid-template-columns: 1fr !important;
-        gap: 6px !important;
-    }
-
-    /* Labels align left and occupy their own line for clarity */
-    .mp-label {
-        text-align: left !important;
-        font-weight: 600 !important;
-        color: var(--text-secondary) !important;
-        margin: 0 !important;
-    }
-
-    /* Inputs/buttons expand full width with consistent sizing */
-    .mp-input,
-    .mp-col--disch .mp-input,
-    .mp-col--inlet .mp-input,
-    .mp-col--id .mp-input {
-        width: 100% !important;
-        min-width: 0 !important;
-        max-width: 100% !important;
-        box-sizing: border-box !important;
-    }
-
-    /* Actions row stacks and fills width */
-    .mp-col--actions {
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: stretch !important;
-        justify-content: stretch !important;
-        gap: 8px !important;
-        margin-top: 6px !important;
-    }
-
-    .mp-del,
-    .mp-add,
-    .mp-btn {
-        width: 100% !important;
-    }
-
-    /* Tighten inner spacing for compact, orderly appearance */
-    .manual-pump-list {
-        display: grid !important;
-        gap: 10px !important;
-    }
-    
-    /* Results table mobile optimization - SIMPLIFIED TO AVOID DUPLICATES */
-    .results-table {
+    /* Style the pump card header */
+    .mp-col--id {
+        font-weight: 700;
+        text-align: center;
+        color: var(--text-primary);
         width: 100%;
-        border-collapse: separate;
-        border-spacing: 0;
+        border-bottom: 1px solid var(--border-subtle);
+        padding-bottom: 8px;
     }
 
-    /* On mobile, if a row lacks data-label and .label, try to use data-key on first cell as the label */
-    .results-table td:first-child[data-key]:before {
-        content: attr(data-key);
-        font-weight: 600;
+    /* Style the key-value rows */
+    .mp-col--inlet, .mp-col--disch {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+    }
+
+    .mp-label, .mp-col--inlet .mp-label {
         color: var(--text-secondary);
-        flex: 0 0 auto;
-        margin-right: 12px;
-        min-width: 140px;
-        text-align: left;
+        font-weight: 600;
+    }
+
+    .mp-value {
+        color: var(--text-primary);
+        font-weight: 700;
+    }
+
+    .mp-col--disch .mp-input {
+        max-width: 120px; /* Give input a fixed width */
+    }
+
+    /* Ensure actions are cleanly at the bottom */
+    .mp-col--actions {
+        margin-top: 6px;
+        width: 100%;
+    }
+
+    .mp-del {
+        width: 100%;
     }
     
-    .results-table,
-    .results-table tbody,
-    .results-table tr {
-        display: block;
+    /* Results table mobile optimization - NEW Flexbox approach */
+    .results-table {
+        border: none;
     }
-    
+
     .results-table thead {
-        display: none;
+        display: none; /* Hide headers on mobile */
     }
-    
+
+    .results-table tbody {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
     .results-table tr {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 12px;
+        background: var(--bg-surface);
         border: 1px solid var(--border);
         border-radius: 8px;
-        margin-bottom: 10px;
-        padding: 0;
-        display: block;
-        background: var(--bg-surface);
     }
-    
+
     .results-table td {
-        border: none !important;
-        display: flex !important;
-        align-items: center;
-        justify-content: space-between;
-        padding: 12px 16px !important;
-        border-bottom: 1px solid var(--border-subtle);
-        position: relative;
+        border: none;
+        padding: 0;
     }
-    
-    .results-table td:last-child {
-        border-bottom: none;
-    }
-    
-    .results-table td:before {
-        /* Always show a label on mobile. Prefer data-label; if missing, show the .label child if present. */
-        content: attr(data-label);
-        font-weight: 600;
-        color: var(--text-secondary);
-        flex: 0 0 auto;
-        margin-right: 12px;
-        min-width: 140px;
-        text-align: left;
-    }
-    /* If no data-label is present, reveal an inline .label element so the row isn't anonymous */
-    .results-table td:not([data-label]) .label {
-        display: inline !important;
+
+    /* Style for the first cell (the label) */
+    .results-table tr td:first-child {
         color: var(--text-secondary);
         font-weight: 600;
-        margin-right: auto;
     }
-    
-    /* Only hide children if data-value is provided to avoid wiping actual content */
-    .results-table td[data-value] > * {
-        display: none !important;
-    }
-    
-    .results-table td[data-value]::after {
-        content: attr(data-value);
-        font-weight: 700;
+
+    /* Style for the second cell (the value) */
+    .results-table tr td:last-child {
         color: var(--text-primary);
-        flex: 1;
-        text-align: right;
-    }
-    /* If no data-value is present, keep a .value element visible on mobile */
-    .results-table td:not([data-value]) .value {
-        display: inline !important;
-        margin-left: auto;
         font-weight: 700;
-        color: var(--text-primary);
-        text-align: right;
     }
     
     /* Chart containers mobile optimization */

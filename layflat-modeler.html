@@ -1142,8 +1142,11 @@
           const row = document.createElement('div');
           row.className = 'manual-pump-row';
           row.innerHTML = `
-            <div class="mp-col mp-col--id">#${idx+1} @ ${(p.distanceFt/5280).toFixed(2)} mi</div>
-            <div class="mp-col mp-col--inlet">Inlet (at pump): ${(Number(p.pressureBefore ?? 0)).toFixed(3)} PSI</div>
+            <div class="mp-col mp-col--id">Pump #${idx+1} @ ${(p.distanceFt/5280).toFixed(2)} mi</div>
+            <div class="mp-col mp-col--inlet">
+              <span class="mp-label">Inlet (at pump)</span>
+              <span class="mp-value">${(Number(p.pressureBefore ?? 0)).toFixed(3)} PSI</span>
+            </div>
             <div class="mp-col mp-col--disch">
               <label class="mp-label" for="mp-dis-${idx}">Discharge PSI</label>
               <input id="mp-dis-${idx}" class="mp-input" type="number" step="0.1" inputmode="decimal" value="${Number(p.discharge ?? elMidlinePsi.value)}">
