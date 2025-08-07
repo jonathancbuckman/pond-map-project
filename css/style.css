@@ -801,28 +801,27 @@ body.modeler-page {
 
 /* Desktop coordinate search positioning fix */
 @media (min-width: 769px) {
-    /* Place search box below the Leaflet layer control (top-right by default)
-       and away from zoom controls (top-left), so controls don't overlap. */
+    /* Center the search box near the top, away from both Leaflet controls */
     .coordinate-search-container {
         position: absolute !important;
-        top: 56px !important;           /* push below layer control header */
-        right: 10px !important;         /* keep to the right side */
-        left: auto !important;
+        top: 14px !important;               /* slide up closer to top */
+        left: 50% !important;               /* center horizontally */
+        transform: translateX(-50%) !important;
+        right: auto !important;
         bottom: auto !important;
-        width: 320px !important;
-        max-width: 320px !important;
-        z-index: 1001 !important;
-        transform: none !important;
-        pointer-events: auto !important; /* allow interaction */
+        width: 420px !important;            /* a bit wider on desktop */
+        max-width: min(60vw, 520px) !important;
+        z-index: 1001 !important;           /* above map UI */
+        pointer-events: auto !important;    /* allow interaction */
     }
-    /* Ensure the Leaflet layers control stays at the very top-right */
+    /* Keep Leaflet layer control top-right */
     .leaflet-control-layers {
         top: 10px !important;
         right: 10px !important;
         left: auto !important;
         bottom: auto !important;
     }
-    /* Keep Leaflet zoom controls on the left with small top margin */
+    /* Keep Leaflet zoom controls top-left */
     .leaflet-control-zoom {
         top: 10px !important;
         left: 10px !important;
