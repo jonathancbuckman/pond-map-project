@@ -587,6 +587,7 @@ body.modeler-page {
         min-height: 300px !important; /* Reasonable minimum on mobile */
         width: 100% !important;
         position: relative !important;
+        overflow: hidden !important; /* guard against children expanding map beyond viewport */
     }
     
     /* Ensure modeler page layout works with flex */
@@ -800,27 +801,34 @@ body.modeler-page {
 
 /* Desktop coordinate search positioning fix */
 @media (min-width: 769px) {
-    /* Place search box at top-right, clear of zoom controls on left */
+    /* Place search box below the Leaflet layer control (top-right by default)
+       and away from zoom controls (top-left), so controls don't overlap. */
     .coordinate-search-container {
         position: absolute !important;
-        top: 10px !important;
-        right: 10px !important;
+        top: 56px !important;           /* push below layer control header */
+        right: 10px !important;         /* keep to the right side */
         left: auto !important;
         bottom: auto !important;
         width: 320px !important;
         max-width: 320px !important;
-        z-index: 1001 !important; /* ensure above map UI */
+        z-index: 1001 !important;
         transform: none !important;
+        pointer-events: auto !important; /* allow interaction */
     }
-    
-    /* Keep Leaflet zoom controls with small top margin on left */
+    /* Ensure the Leaflet layers control stays at the very top-right */
+    .leaflet-control-layers {
+        top: 10px !important;
+        right: 10px !important;
+        left: auto !important;
+        bottom: auto !important;
+    }
+    /* Keep Leaflet zoom controls on the left with small top margin */
     .leaflet-control-zoom {
-        margin-top: 10px !important;
+        top: 10px !important;
         left: 10px !important;
         right: auto !important;
-        top: 10px !important;
+        margin-top: 0 !important;
     }
-    
     body {
         display: flex !important;
         flex-direction: column !important;
@@ -828,7 +836,6 @@ body.modeler-page {
         background: var(--bg-header) !important;
         margin: 0 !important;
     }
-    
     #map {
         flex: 1 1 auto !important;
         height: auto !important;
@@ -836,6 +843,7 @@ body.modeler-page {
         background: var(--bg-header) !important;
         width: 100% !important;
         position: relative !important; /* anchor absolute children like search box */
+        overflow: hidden !important;   /* prevent accidental overflow covering footer */
     }
 }
 
@@ -940,6 +948,7 @@ body {
     padding: 8px 10px;
     z-index: 1100;
     flex-shrink: 0; /* Prevents the footer from shrinking */
+    position: relative; /* keep in normal flow */
 }
 .footer-nav {
     display: inline-flex;
