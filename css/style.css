@@ -566,9 +566,10 @@ body.modeler-page {
     
     /* Footer positioning - use normal flow with margin */
     .site-footer {
+        flex-shrink: 0; /* Ensure footer doesn't shrink */
         position: relative !important;
-        margin-top: 20px !important;
         bottom: auto !important;
+        margin-top: 0 !important; /* Remove conflicting margin */
     }
     
     /* Ensure body has proper flex layout */
@@ -577,17 +578,15 @@ body.modeler-page {
         flex-direction: column !important;
         min-height: 100vh !important;
         margin: 0 !important;
-        background: var(--bg-header) !important;
     }
     
     /* Make map flexible but ensure proper height */
     #map {
-        flex: 1 1 auto !important;
-        height: auto !important;
-        min-height: 0 !important;
+        flex: 1 1 auto !important; /* Use the full flex property for best results */
+        height: auto !important;   /* CRITICAL: let flexbox control height */
+        min-height: 300px !important; /* Reasonable minimum on mobile */
         width: 100% !important;
         position: relative !important;
-        background: var(--bg-header) !important;
     }
     
     /* Ensure modeler page layout works with flex */
