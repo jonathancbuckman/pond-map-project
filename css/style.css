@@ -785,13 +785,21 @@ body.modeler-page {
     }
     
     .results-table td:before {
+        /* Always show a label on mobile. Prefer data-label; if missing, fallback to any .label text that exists. */
         content: attr(data-label);
         font-weight: 600;
         color: var(--text-secondary);
         flex: 0 0 auto;
         margin-right: 12px;
-        min-width: 120px;
+        min-width: 140px;
         text-align: left;
+    }
+    /* If no data-label is present, reveal an inline .label element so the row isn't anonymous */
+    .results-table td:not([data-label]) .label {
+        display: inline !important;
+        color: var(--text-secondary);
+        font-weight: 600;
+        margin-right: auto;
     }
     
     /* Only hide children if data-value is provided to avoid wiping actual content */
@@ -804,6 +812,14 @@ body.modeler-page {
         font-weight: 600;
         color: var(--text-primary);
         flex: 1;
+        text-align: right;
+    }
+    /* If no data-value is present, keep a .value element visible on mobile */
+    .results-table td:not([data-value]) .value {
+        display: inline !important;
+        margin-left: auto;
+        font-weight: 600;
+        color: var(--text-primary);
         text-align: right;
     }
     
@@ -923,6 +939,24 @@ body.modeler-page {
         overflow: hidden !important;   /* prevent accidental overflow covering footer */
         z-index: auto !important;      /* ensure map doesn't overlay footer */
     }
+
+    /* Desktop/tablet: force table semantics and show headers, plus robust label/value support */
+    .results-table thead { display: table-header-group; }
+    .results-table tbody, .results-table tr { display: table-row-group; }
+    .results-table tr { background: transparent; }
+    .results-table td { display: table-cell !important; padding: 10px 12px !important; }
+
+    /* If markup uses data attributes, align accordingly */
+    .results-table td[data-label] { text-align: left; color: var(--text-secondary); font-weight: 600; }
+    .results-table td[data-value] { text-align: right; font-weight: 700; color: var(--text-primary); }
+
+    /* Fallbacks when cells contain .label/.value spans instead of data-* */
+    .results-table td .label { display: inline; color: var(--text-secondary); font-weight: 600; }
+    .results-table td .value { display: inline; float: right; text-align: right; font-weight: 700; color: var(--text-primary); }
+
+    /* Ultimate fallback: two-column alignment even without classes/attributes */
+    .results-table tr > td:nth-child(1) { text-align: left; }
+    .results-table tr > td:nth-child(2) { text-align: right; font-weight: 700; }
 }
 
 /* Additional mobile constraints for very small screens */
