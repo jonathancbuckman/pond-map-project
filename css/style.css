@@ -529,48 +529,72 @@ body.modeler-page {
 
 /* Mobile responsive adjustments */
 @media (max-width: 768px) {
-    /* Coordinate search container fixes */
-    .coordinate-search-container {
-        top: 10px !important;
-        bottom: auto !important;
+    /* Move zoom controls to bottom left to avoid search box */
+    .leaflet-control-zoom {
+        position: absolute !important;
+        top: auto !important;
+        bottom: 80px !important;
         left: 10px !important;
-        right: 60px !important; /* Leave space for layer control */
-        width: auto !important;
-        max-width: calc(100vw - 120px) !important; /* Account for zoom controls and layer control */
-        min-width: 200px;
-        z-index: 1000 !important;
+        margin: 0 !important;
+    }
+    
+    /* Coordinate search container fixes - positioned at top center, clear of controls */
+    .coordinate-search-container {
+        position: absolute !important;
+        top: 10px !important;
+        left: 50% !important;
+        right: auto !important;
+        bottom: auto !important;
+        transform: translateX(-50%) !important;
+        width: calc(100vw - 140px) !important;
+        max-width: 300px !important;
+        min-width: 200px !important;
+        z-index: 1001 !important;
     }
     
     .coordinate-search-input {
         font-size: 16px;
         min-width: 0;
         color: var(--text-primary);
-        padding: 8px 12px !important;
-        border: 1px solid var(--border) !important;
-        background: var(--bg-card) !important;
-    }
-    
-    .coordinate-search-clear {
-        padding: 8px !important;
-        background: var(--bg-surface) !important;
-        border: 1px solid var(--border) !important;
     }
     
     .search-location-popup { min-width: 140px; padding: 6px 10px; }
     .leaflet-popup-content-wrapper.search-popup { padding: 6px 22px 6px 6px; min-width: 160px; }
     
-    /* Footer positioning fix */
+    /* Footer positioning - use normal flow with margin */
     .site-footer {
-        position: fixed !important;
-        bottom: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
+        position: relative !important;
+        margin-top: 20px !important;
+        bottom: auto !important;
+    }
+    
+    /* Ensure body has proper flex layout */
+    body {
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 100vh !important;
         margin: 0 !important;
     }
     
-    /* Adjust map bottom padding to account for fixed footer */
+    /* Make map flexible but ensure proper height */
     #map {
-        padding-bottom: 80px !important;
+        flex: 1 !important;
+        height: auto !important;
+        min-height: calc(100vh - 140px) !important;
+        width: 100% !important;
+        position: relative !important;
+    }
+    
+    /* Ensure modeler page layout works with flex */
+    .modeler-page {
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 100vh !important;
+    }
+    
+    .modeler-wrap {
+        flex: 1 !important;
+        padding-bottom: 20px !important;
     }
     
     /* LAYFLAT MODELER MOBILE FIXES */
@@ -639,7 +663,7 @@ body.modeler-page {
         width: 100%;
     }
     
-    /* Results table mobile optimization - FIXED */
+    /* Results table mobile optimization - SIMPLIFIED TO AVOID DUPLICATES */
     .results-table {
         width: 100%;
         border-collapse: separate;
@@ -686,6 +710,11 @@ body.modeler-page {
         flex: 0 0 auto;
         margin-right: 12px;
         min-width: 120px;
+    }
+    
+    /* Hide the original content to avoid duplicates - target all child elements */
+    .results-table td * {
+        display: none !important;
     }
     
     .results-table td:after {
@@ -775,14 +804,37 @@ body.modeler-page {
         width: 320px !important;
         max-width: 320px !important;
         z-index: 1000 !important;
+        transform: none !important;
+    }
+    
+    .leaflet-control-zoom {
+        margin-top: 10px !important;
+    }
+    
+    body {
+        display: block !important;
+        min-height: auto !important;
+    }
+    
+    #map {
+        flex: none !important;
+        height: 100% !important;
+        min-height: auto !important;
     }
 }
 
 /* Additional mobile constraints for very small screens */
 @media (max-width: 480px) {
     .coordinate-search-container {
-        right: 80px !important; /* More space for layer control on small screens */
-        max-width: calc(100vw - 140px) !important;
+        width: calc(100vw - 40px) !important;
+        max-width: 260px !important;
+        min-width: 200px !important;
+    }
+    
+    /* Move layer control to avoid overlap */
+    .leaflet-control-layers {
+        top: 60px !important;
+        right: 10px !important;
     }
     
     .modeler-wrap {
@@ -832,7 +884,7 @@ body.modeler-page {
 /* --- SITE LAYOUT TO ACCOMMODATE FOOTER --- */
 html, body { height: 100%; }
 body { display: flex; flex-direction: column; }
-#map { flex: 1 1 auto; height: auto; padding-bottom: 60px; }
+#map { flex: 1 1 auto; height: auto; }
 
 /* --- THIN FOOTER (dark) --- */
 .site-footer {
@@ -882,12 +934,7 @@ body { display: flex; flex-direction: column; }
 }
 
 /* Chart.js tooltip colors (Canvas-based charts read these via JS) */
-.chartjs-tooltip {
-    background: var(--bg-header);
-    color: var(--text-primary);
-    border: 1px solid var(--border);
-    box-shadow: var(--shadow-1);
-}
+/* Note: Chart.js tooltips are styled via Chart.defaults configuration in the JavaScript */
 
 /* Global body styling for dark theme */
 body {
