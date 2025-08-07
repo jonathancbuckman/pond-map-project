@@ -574,15 +574,17 @@ body.modeler-page {
         flex-direction: column !important;
         min-height: 100vh !important;
         margin: 0 !important;
+        background: var(--bg-header) !important;
     }
     
     /* Make map flexible but ensure proper height */
     #map {
         flex: 1 !important;
-        height: auto !important;
-        min-height: calc(100vh - 140px) !important;
+        height: 100vh !important;
+        min-height: 400px !important;
         width: 100% !important;
         position: relative !important;
+        background: var(--bg-header) !important;
     }
     
     /* Ensure modeler page layout works with flex */
@@ -814,12 +816,14 @@ body.modeler-page {
     body {
         display: block !important;
         min-height: auto !important;
+        background: var(--bg-header) !important;
     }
     
     #map {
         flex: none !important;
         height: 100% !important;
         min-height: auto !important;
+        background: var(--bg-header) !important;
     }
 }
 
@@ -924,11 +928,11 @@ body { display: flex; flex-direction: column; }
 @media (max-width: 480px) {
     .site-footer {
         padding: 8px 8px;
-        position: sticky;
-        bottom: 6px;
+        position: relative;
+        bottom: 0;
         z-index: 1100;
-        background: rgba(18,18,18,0.9);
-        backdrop-filter: blur(4px);
+        background: var(--bg-header);
+        backdrop-filter: none;
     }
     .footer-link { padding: 6px 8px; font-size: 12px; }
 }
