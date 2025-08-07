@@ -16,6 +16,8 @@ html, body {
     margin: 0;
     padding: 0;
     font-family: 'ISOCPEUR', Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Dark theme variables for consistent styling */
@@ -394,7 +396,8 @@ body.modeler-page {
 
 /* Preserve existing mapping UI styles */
 #map {
-    height: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
     width: 100%;
 }
 
@@ -579,9 +582,9 @@ body.modeler-page {
     
     /* Make map flexible but ensure proper height */
     #map {
-        flex: 1 !important;
-        height: 100vh !important;
-        min-height: 400px !important;
+        flex: 1 1 auto !important;
+        height: auto !important;
+        min-height: 0 !important;
         width: 100% !important;
         position: relative !important;
         background: var(--bg-header) !important;
@@ -814,15 +817,16 @@ body.modeler-page {
     }
     
     body {
-        display: block !important;
-        min-height: auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 100vh !important;
         background: var(--bg-header) !important;
     }
     
     #map {
-        flex: none !important;
-        height: 100% !important;
-        min-height: auto !important;
+        flex: 1 1 auto !important;
+        height: auto !important;
+        min-height: 0 !important;
         background: var(--bg-header) !important;
     }
 }
@@ -886,9 +890,7 @@ body.modeler-page {
 }
 
 /* --- SITE LAYOUT TO ACCOMMODATE FOOTER --- */
-html, body { height: 100%; }
-body { display: flex; flex-direction: column; }
-#map { flex: 1 1 auto; height: auto; }
+/* Consolidated into top-level html, body and #map rules above to avoid duplication */
 
 /* --- THIN FOOTER (dark) --- */
 .site-footer {
@@ -900,6 +902,7 @@ body { display: flex; flex-direction: column; }
     line-height: 1;
     padding: 8px 10px;
     z-index: 1100;
+    flex-shrink: 0; /* Prevents the footer from shrinking */
 }
 .footer-nav {
     display: inline-flex;
