@@ -564,12 +564,12 @@ body.modeler-page {
     .search-location-popup { min-width: 140px; padding: 6px 10px; }
     .leaflet-popup-content-wrapper.search-popup { padding: 6px 22px 6px 6px; min-width: 160px; }
     
-    /* Footer positioning - use normal flow with margin */
+    /* Footer positioning - normal flow, no extra top margin so flexbox controls spacing */
     .site-footer {
-        flex-shrink: 0; /* Ensure footer doesn't shrink */
+        flex-shrink: 0 !important;
         position: relative !important;
         bottom: auto !important;
-        margin-top: 0 !important; /* Remove conflicting margin */
+        margin-top: 0 !important;
     }
     
     /* Ensure body has proper flex layout */
@@ -800,19 +800,25 @@ body.modeler-page {
 
 /* Desktop coordinate search positioning fix */
 @media (min-width: 769px) {
+    /* Place search box at top-right, clear of zoom controls on left */
     .coordinate-search-container {
+        position: absolute !important;
         top: 10px !important;
         right: 10px !important;
         left: auto !important;
         bottom: auto !important;
         width: 320px !important;
         max-width: 320px !important;
-        z-index: 1000 !important;
+        z-index: 1001 !important; /* ensure above map UI */
         transform: none !important;
     }
     
+    /* Keep Leaflet zoom controls with small top margin on left */
     .leaflet-control-zoom {
         margin-top: 10px !important;
+        left: 10px !important;
+        right: auto !important;
+        top: 10px !important;
     }
     
     body {
@@ -829,6 +835,7 @@ body.modeler-page {
         min-height: 0 !important;
         background: var(--bg-header) !important;
         width: 100% !important;
+        position: relative !important; /* anchor absolute children like search box */
     }
 }
 
