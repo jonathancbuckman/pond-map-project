@@ -10,14 +10,16 @@
 }
 
 /* --- 2. GLOBAL STYLES --- */
-html, body {
+/* Avoid putting body into a flex formatting context together with html.
+   Only body should be flex; html should not be a flex container. */
+html {
     height: 100%;
     width: 100%;
+}
+body {
     margin: 0;
     padding: 0;
     font-family: 'ISOCPEUR', Arial, sans-serif;
-    display: flex;
-    flex-direction: column;
 }
 
 /* Dark theme variables for consistent styling */
@@ -588,6 +590,7 @@ body.modeler-page {
         width: 100% !important;
         position: relative !important;
         overflow: hidden !important; /* guard against children expanding map beyond viewport */
+        contain: layout paint size !important; /* prevent descendants from affecting map's size */
     }
     
     /* Ensure modeler page layout works with flex */
@@ -909,9 +912,10 @@ html {
 body {
     display: flex;
     flex-direction: column;
-    min-height: 100vh; /* Ensure body takes at least full screen height */
+    min-height: 100svh; /* use small-viewport height to account for mobile browser UI */
     margin: 0;
     background-color: var(--bg-header);
+    overflow-x: hidden;
 }
 
 #map {
@@ -976,7 +980,7 @@ body {
 @media (max-width: 480px) {
     .site-footer {
         padding: 8px 8px;
-        position: relative;
+        position: sticky; /* keep footer visible when content shorter than viewport */
         bottom: 0;
         z-index: 1100;
         background: var(--bg-header);
