@@ -615,12 +615,12 @@
 
     function calculateHazenWilliamsLoss(gpm, cFactor, diameterInches) {
           if (gpm <= 0 || cFactor <= 0 || diameterInches <= 0) return 0;
-          // Hazen-Williams head loss in feet of water per 100 ft:
-          // hf_100ft(ft) = 4.52 * Q^1.85 / (C^1.85 * d^4.87), with Q in GPM and d in inches.
-          const hf_per_100ft = (4.52 * Math.pow(gpm, 1.85)) /
+          // Hazen-Williams pressure loss in PSI per foot:
+          // p_psi_per_ft = 4.52 * Q^1.85 / (C^1.85 * d^4.87), with Q in GPM and d in inches.
+          const p_psi_per_ft = (4.52 * Math.pow(gpm, 1.85)) /
                            (Math.pow(cFactor, 1.85) * Math.pow(diameterInches, 4.87));
-          // Convert ft of water to PSI per 100 ft (1 ft of water ≈ 0.433 PSI)
-          return hf_per_100ft * PSI_PER_FOOT_WATER;
+          // Return PSI loss per 100 ft
+          return p_psi_per_ft * 100;
         }
 
     // Small helper for retry backoff
