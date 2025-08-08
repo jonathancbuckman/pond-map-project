@@ -615,9 +615,9 @@
 
     function calculateHazenWilliamsLoss(gpm, cFactor, diameterInches) {
           if (gpm <= 0 || cFactor <= 0 || diameterInches <= 0) return 0;
-          // Direct calculation for PSI per 100 ft using US customary units.
-          // Formula provided by user: psi_per_100ft = 195.916 * Q_gpm^1.85 / (C^1.85 * d_in^4.87)
-          const psi_per_100ft = (195.916 * Math.pow(gpm, 1.85)) /
+          // Direct calculation for PSI per 100 ft using US customary units (water).
+          // Standard formula: psi_per_100ft = 452 * Q_gpm^1.85 / (C^1.85 * d_in^4.87)
+          const psi_per_100ft = (452 * Math.pow(gpm, 1.85)) /
                             (Math.pow(cFactor, 1.85) * Math.pow(diameterInches, 4.87));
           return psi_per_100ft;
         }
@@ -1648,6 +1648,9 @@
         headerLines.push(`# flow_bpm,${toCsv(state?.flowBpm)}`);
         headerLines.push(`# hose_in,${toCsv(state?.hoseIn)}`);
         headerLines.push(`# hose_runs,${toCsv(state?.hoseRuns)}`);
+        if (state?.lossMethod === 'hazen') {
+          headerLines.push(`# hazen_c_factor,${toCsv(state?.hazenCFactor)}`);
+        }
         headerLines.push(`# psi_loss_per_100,${toCsv(usedPer100)}`);
         headerLines.push(`# loss_per_ft,${toCsv(lossPerFt)}`);
         headerLines.push(`# path_dir,${toCsv(state?.pathDir)}`);
