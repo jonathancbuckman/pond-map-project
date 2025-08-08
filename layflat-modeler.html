@@ -456,14 +456,14 @@
     const verticalLineWithCirclePlugin = {
       id: 'verticalLineWithCircle',
 
-      afterDraw: (chart) => {
-        // We only want to draw if the tooltip is active.
+      // The hook has been changed from 'afterDraw' to 'afterDatasetsDraw'
+      // This ensures it runs after the main lines are drawn but avoids
+      // potential conflicts with the final render/cleanup steps.
+      afterDatasetsDraw: (chart) => {
         if (chart.tooltip && chart.tooltip.getActiveElements().length > 0) {
           const activeElement = chart.tooltip.getActiveElements();
 
-          // --- THIS IS THE FIX ---
-          // Add a check to ensure the 'element' property exists before using it.
-          // This prevents the "Cannot read properties of undefined" error.
+          // Check to ensure the 'element' property exists before using it.
           if (activeElement && activeElement.element) {
             const { ctx, chartArea: { top, bottom } } = chart;
             const activePoint = {
