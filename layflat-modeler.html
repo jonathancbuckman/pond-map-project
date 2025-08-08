@@ -485,30 +485,109 @@
         if (!pumpDatasets.length) return;
 
         ctx.save();
+ 
+        // Draw a simple pump silhouette using canvas primitives centered at (x,y).
+        // This provides a reliable, visible pump icon even if image drawing fails.
+        function drawPumpSilhouette(ctx, x, y, radius, fillStyle, strokeStyle) {
+          const r = Math.max(1, Number(radius || 7));
+          ctx.save();
+          ctx.translate(x, y);
+          // normalize drawing to a base size so radius scales predictably
+          const scale = r / 7;
+          ctx.scale(scale, scale);
+ 
+          // Body: rounded-ish casing
+          ctx.beginPath();
+          ctx.moveTo(-6, 2);
+          ctx.quadraticCurveTo(-6, -3, -1, -4);
+          ctx.quadraticCurveTo(1.2, -5.1, 3.6, -4.1);
+          ctx.quadraticCurveTo(7.5, -2.8, 7.5, 2.2);
+          ctx.lineTo(7.5, 5);
+          ctx.lineTo(-6, 5);
+          ctx.closePath();
+          ctx.fillStyle = fillStyle;
+          ctx.fill();
+          if (strokeStyle) {
+            ctx.lineWidth = 0.8;
+            ctx.strokeStyle = strokeStyle;
+            ctx.stroke();
+          }
+ 
+          // Impeller / center hub
+          ctx.beginPath();
+          ctx.arc(1, 0.6, 2.2, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255,255,255,0.12)';
+          ctx.fill();
+          // simple blades
+          ctx.beginPath();
+          ctx.moveTo(1, 0.6);
+          ctx.lineTo(3.2, -0.6);
+          ctx.lineTo(1, -0.1);
+          ctx.closePath();
+          ctx.fillStyle = 'rgba(255,255,255,0.18)';
+          ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(1, 0.6);
+          ctx.lineTo(-0.8, 2.6);
+          ctx.lineTo(0.6, 0.9);
+          ctx.closePath();
+          ctx.fillStyle = 'rgba(255,255,255,0.18)';
+          ctx.fill();
+ 
+          // small base plate
+          ctx.beginPath();
+          ctx.rect(-5.5, 5, 11, 1.6);
+          ctx.fillStyle = 'rgba(0,0,0,0.12)';
+          ctx.fill();
+          if (strokeStyle) {
+            ctx.lineWidth = 0.6;
+            ctx.strokeStyle = strokeStyle;
+            ctx.stroke();
+          }
+ 
+          ctx.restore();
+        }
+ 
         pumpDatasets.forEach(({ ds, meta }) => {
           if (!meta || !meta.data) return;
-          const radius = Number(ds.pointRadius ?? 7);
-          const color = ds.pointBackgroundColor || '#ff7f0e';
-
+          // Use a larger default radius so pump markers render bigger by default.
+          const radius = Number(ds.pointRadius ?? 12);
+          // Prefer dataset background color, but default to red requested by user
+          const color = ds.pointBackgroundColor || '#dc3545';
+  
           meta.data.forEach(element => {
-            if (!element || !element.x || !element.y) return;
+            if (!element || element.x == null || element.y == null) return;
             const x = element.x;
             const y = element.y;
-            // draw triangle centered at (x, y)
-            const h = radius;
-            const w = radius * 1.15;
-            ctx.beginPath();
-            ctx.moveTo(x, y - h);        // top
-            ctx.lineTo(x + w, y + h);    // bottom right
-            ctx.lineTo(x - w, y + h);    // bottom left
-            ctx.closePath();
-            ctx.fillStyle = color;
-            ctx.fill();
-            if (ds.pointBorderColor) {
-              ctx.lineWidth = 1.25;
-              ctx.strokeStyle = ds.pointBorderColor;
-              ctx.stroke();
+            // If the dataset provided an Image (pointStyle), draw it centered at the point.
+            // Otherwise draw a vector pump silhouette so it always looks like a pump.
+            const img = ds.pointStyle;
+            if (img && (img instanceof HTMLImageElement || (typeof img === 'object' && img.src))) {
+              // If image is loaded and usable, draw it
+              if (img.complete && img.naturalWidth && img.naturalHeight) {
+                // Size derived from dataset radius (falls back to our larger default)
+                const size = Number(ds.pointRadius ?? radius) * 2;
+                const iw = size;
+                const ih = size;
+                try {
+                  ctx.drawImage(img, x - iw / 2, y - ih / 2, iw, ih);
+                  // subtle ring around image when a border color is provided
+                  if (ds.pointBorderColor) {
+                    ctx.beginPath();
+                    ctx.arc(x, y, Math.max(1, size / 2) + 0.5, 0, Math.PI * 2);
+                    ctx.lineWidth = 1.25;
+                    ctx.strokeStyle = ds.pointBorderColor;
+                    ctx.stroke();
+                  }
+                } catch (e) {
+                  // If drawImage fails, draw the vector silhouette instead
+                  drawPumpSilhouette(ctx, x, y, radius, color, ds.pointBorderColor);
+                }
+                return;
+              }
             }
+            // No image available: draw the vector pump silhouette (red by default)
+            drawPumpSilhouette(ctx, x, y, radius, color, ds.pointBorderColor);
           });
         });
         ctx.restore();
@@ -554,9 +633,21 @@
     const PSI_PER_FOOT_WATER = 0.433;
 
     // Pump icon image (forces distinct rendering path to ensure on-top layering)
-    const pumpIcon = new Image(14, 14);
-    // Resembles "Centrifugal1" from your image
-    pumpIcon.src = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><path d="M13,9.5 V6.5 H11 C11,4.5 9.5,3 7.5,3 S4,4.5 4,6.5 H1 V9.5 H4 V6.5 C4,5.4 4.9,4.5 6,4.5 S8,5.4 8,6.5 V9.5 Z M4,12 L7,9.5 H1 Z" fill="#ff7f0e"/></svg>');
+    // Increased the image pixel size so chart drawImage uses a larger, more visible icon.
+    const pumpIcon = new Image(24, 24);
+    // Track whether the icon has fully loaded so charts can be refreshed when ready
+    let pumpIconLoaded = false;
+    pumpIcon.onload = () => {
+      pumpIconLoaded = true;
+      // If charts already exist, update them so the loaded image is used by the plugin/datasets.
+      try { if (chartInstance) chartInstance.update(); } catch (e) {}
+      try { if (elevChartInstance) elevChartInstance.update(); } catch (e) {}
+    };
+    pumpIcon.onerror = () => { pumpIconLoaded = false; };
+    // Resembles "Centrifugal1" from your image (filled red). Larger SVG for a crisper, more filled appearance.
+    pumpIcon.src = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M22,15.5 V10.5 H18 C18,7.5 15.5,5 12.5,5 S7,7.5 7,10.5 H2 V15.5 H7 V10.5 C7,8.9 8.9,7 11,7 S15,8.9 15,10.5 V15.5 Z M7,19 L12,15.5 H2 Z" fill="#dc3545"/></svg>');
+    // Try to decode the image immediately where supported (helps ensure .complete/naturalWidth are set faster)
+    try { if (pumpIcon.decode) pumpIcon.decode().catch(() => {}); } catch (e) {}
 
     // Backend proxy endpoint hosted on PythonAnywhere (Flask).
     // Prefer this to eliminate CORS/proxy/JSONP issues.
@@ -1417,7 +1508,8 @@
       const css = getComputedStyle(document.documentElement);
       const lineColor = css.getPropertyValue('--chart-line').trim() || '#3b83f7';
       const fillColor = css.getPropertyValue('--chart-fill').trim() || 'rgba(59,131,247,0.12)';
-      const pumpColor = css.getPropertyValue('--chart-pump').trim() || '#ff7f0e';
+      // Default pump color changed to red to match requested style. CSS var still overrides when set.
+      const pumpColor = css.getPropertyValue('--chart-pump').trim() || '#dc3545';
       const gridMajor = css.getPropertyValue('--chart-grid-major').trim() || '#2b3644';
       const gridMinor = css.getPropertyValue('--chart-grid-minor').trim() || '#1e2630';
       const axisText = css.getPropertyValue('--chart-text').trim() || '#9aa3ad';
@@ -1440,6 +1532,22 @@
               order: 1,                      /* draw the line first (under) */
               segment: { z: 0 },             /* ensure segments are at low z */
               pointStyle: false              /* no points rendered for line */
+            },
+            {
+              // Pump markers drawn as a scatter dataset so they appear above the line.
+              // pointStyle is the Image `pumpIcon` (handled by PumpOnTopPlugin).
+              // Use an explicit, saturated red fill and larger radius for visibility (overrides any CSS var).
+              label: 'Pump',
+              type: 'scatter',
+              data: pumpMarkers,
+              pointStyle: pumpIcon,
+              pointBackgroundColor: '#dc3545',
+              pointBorderColor: '#6b0000',
+              pointRadius: 12,
+              pointHoverRadius: 14,
+              showLine: false,
+              order: 9999,   /* draw on top */
+              clip: false
             }
           ]
         },
@@ -1553,10 +1661,11 @@
               type: 'scatter',
               data: pumpPoints,
               pointStyle: pumpIcon,
-              pointBackgroundColor: pumpColor,
-              pointBorderColor: pumpColor,
-              pointRadius: 7,
-              pointHoverRadius: 8,
+              // Explicit red fill and darker border for better contrast on elevation chart too
+              pointBackgroundColor: '#dc3545',
+              pointBorderColor: '#6b0000',
+              pointRadius: 12,
+              pointHoverRadius: 14,
               showLine: false,
               order: 9999,
               clip: false
