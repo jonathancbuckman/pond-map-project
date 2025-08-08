@@ -615,17 +615,11 @@
 
     function calculateHazenWilliamsLoss(gpm, cFactor, diameterInches) {
           if (gpm <= 0 || cFactor <= 0 || diameterInches <= 0) return 0;
-          // Convert GPM to Barrels per Minute (BPM) for user-provided formula
-          const qb = gpm / BARRELS_TO_GALLONS;
-
-          // Calculate headloss gradient (S) using the user's formula:
-          // S = 4551 * (Qb^1.85) / (C^1.85 * d^4.87)
-          const S = (4551 * Math.pow(qb, 1.85)) /
-            (Math.pow(cFactor, 1.85) * Math.pow(diameterInches, 4.87));
-
-          // Calculate pressure drop in PSI per 100 ft using the user's conversion:
-          // ΔP(psi per 100 ft) ≈ 43.29 * S
-          return 43.29 * S;
+          // Direct calculation for PSI per 100 ft using US customary units.
+          // Formula provided by user: psi_per_100ft = 195.916 * Q_gpm^1.85 / (C^1.85 * d_in^4.87)
+          const psi_per_100ft = (195.916 * Math.pow(gpm, 1.85)) /
+                            (Math.pow(cFactor, 1.85) * Math.pow(diameterInches, 4.87));
+          return psi_per_100ft;
         }
 
     // Small helper for retry backoff
