@@ -456,41 +456,41 @@
     const verticalLineWithCirclePlugin = {
       id: 'verticalLineWithCircle',
 
-      // We no longer need the 'afterEvent' hook because we will rely
-      // on Chart.js's built-in tooltip activation.
-
-      // This hook is called after the datasets have been drawn.
       afterDraw: (chart) => {
-        // We only want to draw the line and circle if the tooltip is active
+        // We only want to draw if the tooltip is active.
         if (chart.tooltip && chart.tooltip.getActiveElements().length > 0) {
-          const { ctx, chartArea: { top, bottom } } = chart;
-          
-          // Get the active point (works for both hover and tap)
           const activeElement = chart.tooltip.getActiveElements();
-          const activePoint = {
-            x: activeElement.element.x,
-            y: activeElement.element.y
-          };
 
-          // Draw the vertical line
-          ctx.save();
-          ctx.beginPath();
-          ctx.strokeStyle = '#ff7f0e'; // A nice orange color for the tracker
-          ctx.lineWidth = 1;
-          ctx.setLineDash(); // Make it a dashed line
-          ctx.moveTo(activePoint.x, top);
-          ctx.lineTo(activePoint.x, bottom);
-          ctx.stroke();
-          ctx.restore();
+          // --- THIS IS THE FIX ---
+          // Add a check to ensure the 'element' property exists before using it.
+          // This prevents the "Cannot read properties of undefined" error.
+          if (activeElement && activeElement.element) {
+            const { ctx, chartArea: { top, bottom } } = chart;
+            const activePoint = {
+              x: activeElement.element.x,
+              y: activeElement.element.y
+            };
 
-          // Draw the hollow circle
-          ctx.save();
-          ctx.beginPath();
-          ctx.strokeStyle = '#ff7f0e';
-          ctx.lineWidth = 2;
-          ctx.arc(activePoint.x, activePoint.y, 6, 0, Math.PI * 2, false);
-          ctx.stroke();
-          ctx.restore();
+            // Draw the vertical line
+            ctx.save();
+            ctx.beginPath();
+            ctx.strokeStyle = '#ff7f0e';
+            ctx.lineWidth = 1;
+            ctx.setLineDash();
+            ctx.moveTo(activePoint.x, top);
+            ctx.lineTo(activePoint.x, bottom);
+            ctx.stroke();
+            ctx.restore();
+
+            // Draw the hollow circle
+            ctx.save();
+            ctx.beginPath();
+            ctx.strokeStyle = '#ff7f0e';
+            ctx.lineWidth = 2;
+            ctx.arc(activePoint.x, activePoint.y, 6, 0, Math.PI * 2, false);
+            ctx.stroke();
+            ctx.restore();
+          }
         }
       }
     };
