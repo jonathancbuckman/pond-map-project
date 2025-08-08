@@ -615,11 +615,17 @@
 
     function calculateHazenWilliamsLoss(gpm, cFactor, diameterInches) {
           if (gpm <= 0 || cFactor <= 0 || diameterInches <= 0) return 0;
-          // Standard Hazen-Williams head loss in feet of water per 100 ft:
-          // hf_100ft = 0.2083 * (100/C)^1.85 * Q_gpm^1.85 / d_in^4.87
-          const hf_per_100ft = 0.2083 * Math.pow(100 / cFactor, 1.85) * Math.pow(gpm, 1.85) / Math.pow(diameterInches, 4.87);
-          // Convert ft of water to PSI per 100 ft (1 ft of water ≈ 0.433 PSI)
-          return hf_per_100ft * PSI_PER_FOOT_WATER;
+          // Convert GPM to Barrels per Minute (BPM) for user-provided formula
+          const qb = gpm / BARRELS_TO_GALLONS;
+
+          // Calculate headloss gradient (S) using the user's formula:
+          // S = 4551 * (Qb^1.85) / (C^1.85 * d^4.87)
+          const S = (4551 * Math.pow(qb, 1.85)) /
+            (Math.pow(cFactor, 1.85) * Math.pow(diameterInches, 4.87));
+
+          // Calculate pressure drop in PSI per 100 ft using the user's conversion:
+          // ΔP(psi per 100 ft) ≈ 43.29 * S
+          return 43.29 * S;
         }
 
     // Small helper for retry backoff
