@@ -1391,11 +1391,10 @@
 
       const n = Math.min(distances.length, pressures.length);
 
-      // Base dataset (drop 'post' points to avoid duplicate x)
+      // This is the corrected section.
+      // We no longer filter out 'post' points, so the vertical pump jumps will be drawn.
       const basePts = [];
       for (let i = 0; i < n; i++) {
-        const k = Array.isArray(kinds) && kinds.length === n ? kinds[i] : 'normal';
-        if (k === 'post') continue;
         basePts.push({ x: Number(distances[i]), y: Number(pressures[i]) });
       }
 
