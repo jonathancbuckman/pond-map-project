@@ -555,7 +555,8 @@
 
     // Pump icon image (forces distinct rendering path to ensure on-top layering)
     const pumpIcon = new Image(14, 14);
-    pumpIcon.src = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><path d="M7 0L14 10.5H0z" fill="#ff7f0e"/></svg>');
+    // Resembles "Centrifugal1" from your image
+    pumpIcon.src = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><path d="M13,9.5 V6.5 H11 C11,4.5 9.5,3 7.5,3 S4,4.5 4,6.5 H1 V9.5 H4 V6.5 C4,5.4 4.9,4.5 6,4.5 S8,5.4 8,6.5 V9.5 Z M4,12 L7,9.5 H1 Z" fill="#ff7f0e"/></svg>');
 
     // Backend proxy endpoint hosted on PythonAnywhere (Flask).
     // Prefer this to eliminate CORS/proxy/JSONP issues.
