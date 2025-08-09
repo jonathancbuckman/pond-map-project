@@ -1011,22 +1011,7 @@ body {
     overflow: hidden;   /* guard against children overflowing and covering footer */
 }
 
-.site-footer {
-    /* Prevent the footer from shrinking */
-    flex-shrink: 0;
-    position: relative; /* Ensure it stays in the document flow */
-
-    /* Existing footer styles kept consistent with theme */
-    background: var(--bg-header);
-    border-top: 1px solid var(--border);
-    color: var(--text-secondary);
-    font-family: 'ISOCPEUR', Arial, sans-serif;
-    font-size: 13px;
-    padding: 8px 10px;
-    z-index: 1100;
-}
-
-/* --- THIN FOOTER (dark) --- */
+/* --- FOOTER STYLES --- */
 .site-footer {
     background: var(--bg-header);
     border-top: 1px solid var(--border);
@@ -1036,8 +1021,8 @@ body {
     line-height: 1;
     padding: 8px 10px;
     z-index: 1100;
-    flex-shrink: 0; /* Prevents the footer from shrinking */
-    position: relative; /* keep in normal flow */
+    flex-shrink: 0;
+    position: relative;
 }
 .footer-nav {
     display: inline-flex;
