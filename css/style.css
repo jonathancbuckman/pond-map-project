@@ -850,8 +850,25 @@ body.modeler-page {
     }
 }
 
-/* Desktop modeler footer fix */
+/* Desktop modeler layout fix - ensure footer sticks to bottom */
 @media (min-width: 481px) {
+    .modeler-page {
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 100vh !important;
+    }
+    
+    .modeler-page .modeler-wrap {
+        flex: 1 1 auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+    
+    .modeler-page .site-footer {
+        flex-shrink: 0 !important;
+        margin-top: auto !important;
+    }
+    
     .modeler-page .footer-link {
         padding: 6px 10px !important;
         font-size: 13px !important;
