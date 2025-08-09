@@ -647,6 +647,20 @@ body.modeler-page {
     /* Fix footer height on modeler page */
     .modeler-page .site-footer {
         padding: 8px 10px !important;
+        line-height: 1 !important;
+        min-height: auto !important;
+        height: auto !important;
+    }
+    
+    .modeler-page .footer-nav {
+        margin: 0 !important;
+        padding: 0 !important;
+        line-height: 1 !important;
+    }
+    
+    .modeler-page .footer-link {
+        margin: 0 !important;
+        line-height: 1 !important;
     }
     
     /* LAYFLAT MODELER MOBILE FIXES */
