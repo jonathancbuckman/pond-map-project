@@ -850,6 +850,14 @@ body.modeler-page {
     }
 }
 
+/* Desktop modeler footer fix */
+@media (min-width: 481px) {
+    .modeler-page .footer-link {
+        padding: 6px 10px !important;
+        font-size: 13px !important;
+    }
+}
+
 /* Desktop coordinate search positioning fix */
 @media (min-width: 769px) {
     /* Center the search box near the top, away from both Leaflet controls */
