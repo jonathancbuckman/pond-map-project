@@ -644,6 +644,11 @@ body.modeler-page {
         padding-bottom: 20px !important;
     }
     
+    /* Fix footer height on modeler page */
+    .modeler-page .site-footer {
+        padding: 8px 10px !important;
+    }
+    
     /* LAYFLAT MODELER MOBILE FIXES */
     
     /* Main wrapper mobile constraints */
