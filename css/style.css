@@ -61,11 +61,6 @@ body.modeler-page {
     border-bottom: 1px solid var(--border) !important;
     color: var(--text-primary) !important;
 }
-.site-footer {
-    background: var(--bg-header) !important;
-    border-top: 1px solid var(--border) !important;
-    color: var(--text-secondary) !important;
-}
 .footer-link {
     background: var(--bg-card) !important;
     border-color: var(--border) !important;
@@ -615,13 +610,6 @@ body.modeler-page {
     .leaflet-popup-content-wrapper.search-popup { padding: 6px 22px 6px 6px; min-width: 160px; }
     
     /* Footer positioning - normal flow, no extra top margin so flexbox controls spacing */
-    .site-footer {
-        flex-shrink: 0 !important;
-        position: relative !important;
-        bottom: auto !important;
-        margin-top: 0 !important;
-        z-index: 1100 !important; /* ensure footer stays above map children */
-    }
     
     /* Ensure body has proper flex layout */
     body {
@@ -1049,15 +1037,6 @@ body {
     border-color: var(--border-subtle);
 }
 @media (max-width: 480px) {
-    .site-footer {
-        padding: 8px 8px;
-        /* Keep footer in normal flow to avoid overlap issues with absolute map children */
-        position: relative;
-        bottom: auto;
-        z-index: 1100;
-        background: var(--bg-header);
-        backdrop-filter: none;
-    }
     .footer-link { padding: 6px 8px; font-size: 12px; }
 }
 
